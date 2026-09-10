@@ -189,6 +189,11 @@
   button:focus-visible{outline:2px solid #ffe1a6;outline-offset:4px}.objGrid{touch-action:pan-y;flex-shrink:1;min-height:0}.shopCard{width:min(400px,94vw)}
   @media(max-height:620px){.card{padding:16px 22px}.hintHand{display:none}.title{font-size:30px}.sub{font-size:12px}.scores{margin:10px 0}.objGrid{grid-template-columns:repeat(3,1fr)}.edition{margin-bottom:5px}}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+#fuelHUD{position:absolute;top:calc(env(safe-area-inset-top,0px) + 76px);left:14px;width:142px;background:#071c30d9;padding:10px 12px;border:1px solid #f4c56c44;border-radius:13px}
+#fuelCaption{display:flex;justify-content:space-between;color:#fce1a4;font-size:10px;font-weight:800;letter-spacing:.07em}.fuelTrack{height:6px;border-radius:5px;background:#ffffff16;margin-top:7px;overflow:hidden}#fuelFill{height:100%;background:linear-gradient(90deg,#efa743,#ffe8a2);transform-origin:left;transition:background .2s}#fuelHUD.low #fuelFill{background:#ff775c}#fuelStatus{font-size:9px;color:#b6d4d1;margin-top:6px}#paceHUD{position:absolute;right:14px;top:calc(env(safe-area-inset-top,0px) + 80px);text-align:right;color:#bfdfd6;font-size:10px;line-height:1.7}#paceVal{color:#f3fff9;font-size:15px;font-weight:800}
+#notice{position:fixed;z-index:20;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);transform:translateX(-50%);width:min(340px,90vw);padding:13px 17px;border:1px solid #ddf6d74d;border-radius:14px;background:#112d42f5;color:#e8f5e6;font-size:12px;line-height:1.65;pointer-events:none;opacity:0;transition:opacity .2s}#notice.on{opacity:1}
+#comboTag{top:calc(env(safe-area-inset-top,0px) + 155px)}#hapticBtn{max-width:146px;font-size:10px}
+@media(max-height:500px){#fuelHUD{top:70px;padding:7px 10px}#paceHUD{top:72px}.card .sub{line-height:1.4}}
 </style>
 </head>
 <body>
@@ -201,7 +206,7 @@
     <div class="pill"><div class="lbl">REKOR</div><div class="val small" id="uiBest">0</div></div>
   </div>
   <div id="coinPill"><span class="coinIcon"></span><span id="coinVal">0</span></div>
-  <div id="comboTag">COMBO x2</div>
+  <div id="fuelHUD"><div id="fuelCaption"><span>⛽ YAKIT</span><span id="fuelVal">%100</span></div><div class="fuelTrack" role="progressbar" aria-label="Motor yakıtı" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="fuelMeter"><div id="fuelFill"></div></div><div id="fuelStatus">Altın halkalar yakıt doldurur</div></div><div id="paceHUD">UÇUŞ TEMPOSU<br><span id="paceVal">1 / 5</span><br><span id="gateVal">0 HALKA</span></div><div id="comboTag">COMBO x2</div>
 </div>
 <button id="sndBtn" title="sound">&#128266;</button>
 
@@ -210,7 +215,7 @@
     <div class="edition">GECE YOLCULUĞU / 01</div><div class="title">AIRLIFT</div>
     <div class="sub">Basılı tut, hava akımını yükselt.<br>Sağa sola kaydır, rüzgâra yön ver.<br><span id="startLine">Float the feather through the rings.</span></div>
     <div class="hintHand"></div>
-    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5">Uçuşun sırrı <b>rüzgârda.</b></div>
+    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5"><b style="color:#ffe0a0">⛽ Altın halkalar +%45 yakıt.</b><br>Halkaları geçtikçe hızlan; yakıtını koru.</div>
     <div class="startCoins"><span class="coinIcon"></span><span id="startCoinVal">0</span></div>
     <button class="btn" id="startBtn">UÇUŞA BAŞLA</button>
     <button class="btnAlt" id="objBtn">HANGAR</button>
@@ -246,6 +251,7 @@
 
 <button id="hapticBtn" aria-label="Titreşim">TİTREŞİM</button><button id="pauseBtn" aria-label="Oyunu duraklat">Ⅱ DURAKLAT</button><div id="flightHint">BASILI TUT · RÜZGÂRI YÖNLENDİR</div>
 <div class="screen" id="pauseScreen"><div class="card"><div class="edition">BİR NEFES MOLASI</div><div class="title" style="font-size:28px">DURAKLATILDI</div><p class="sub" style="margin:14px 0">Hazır olduğunda yolculuğa devam et.</p><button class="btn" id="resumeBtn">DEVAM ET</button></div></div>
+<div id="notice" role="status" aria-live="polite"></div>
 <script>
 (() => {
 'use strict';
@@ -492,13 +498,17 @@ function tune(){
   P.coneBase   = 30 * S;        // jet width at the nozzle
   P.spread     = 0.34;          // jet widening per unit of distance
   P.falloffPow = 1.35;          // force decay along the jet
-  P.hPush      = 0.52;          // horizontal authority of the jet (keep < 1)
+  P.hPush      = 0.55;          // horizontal authority of the jet (keep < 1)
   P.attack     = 7.0;           // pressure rise rate
   P.release    = 14.0;          // pressure fade rate (fast, but not a hard cut)
-  P.baseFollow = 2.6;           // how fast the blower slides under your finger
-  P.baseSpeed  = 0.95 * W;      // max blower slide speed (px/s)
-  P.tiltMax    = 0.42;          // max jet tilt (~24 deg)
-  P.tiltRef    = W * 0.30;      // finger offset that produces full tilt
+  P.baseFollow = 5.2;           // how fast the blower slides under your finger
+  P.baseSpeed  = 1.65 * W;      // max blower slide speed (px/s)
+  P.tiltMax    = 0.25;          // max jet tilt (~14 deg) — a gentler lean now
+                                //   that the beam itself tracks your finger,
+                                //   so leaning costs far less lift
+  P.tiltRef    = W * 0.30;      // finger lag that produces full tilt
+  P.assist     = 0.28;          // how much a strayed object pulls the blower back
+  P.centerMul  = 1.55;          // global boost on how hard the stream holds on
   P.nozzleY    = 74 * S;        // nozzle height above the bottom edge
   P.camUp      = 3.4;
   P.camDown    = 1.5;
@@ -517,7 +527,7 @@ function applyProfile(){
   const o = OBJ;
   P.g        = P.gBase * o.gravity;
   P.jetF     = P.jetFBase * o.lift;
-  P.center   = P.gBase * o.center;
+  P.center   = P.gBase * o.center * P.centerMul;
   P.turb     = P.gBase * o.turb;
   P.dragLin  = o.dragLin;
   P.dragQuad = o.dragQuad / S;
@@ -556,7 +566,7 @@ const Snd = {
     if (!AC) return;
     this.ac = new AC();
     this.master = this.ac.createGain();
-    this.master.gain.value = 0.9;
+    this.master.gain.value = 0.65;
     this.master.connect(this.ac.destination);
 
     // looping noise bed for the airflow
@@ -571,7 +581,7 @@ const Snd = {
     const src = this.ac.createBufferSource();
     src.buffer = buf; src.loop = true;
     this.windFilter = this.ac.createBiquadFilter();
-    this.windFilter.type = 'bandpass';
+    this.windFilter.type = 'lowpass';
     this.windFilter.frequency.value = 700;
     this.windFilter.Q.value = 0.7;
     this.windGain = this.ac.createGain();
@@ -583,10 +593,10 @@ const Snd = {
   resume(){ if (this.ac && this.ac.state === 'suspended') this.ac.resume(); },
   wind(pressure, tilt){
     if (!this.ready) return;
-    const g = this.on ? pressure * pressure * 0.075 : 0;
+    const g = this.on ? pressure * pressure * 0.045 : 0;
     this.windGain.gain.setTargetAtTime(g, this.ac.currentTime, 0.04);
     this.windFilter.frequency.setTargetAtTime(
-      560 + pressure*820 + Math.abs(tilt)*300, this.ac.currentTime, 0.08);
+      280 + pressure*400 + Math.abs(tilt)*100, this.ac.currentTime, 0.08);
   },
   blip(freq, dur, type, vol){
     if (!this.ready || !this.on) return;
@@ -596,16 +606,17 @@ const Snd = {
     o.type = type || 'sine';
     o.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.008);
+    g.gain.linearRampToValueAtTime(vol, t + 0.018);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(this.master);
     o.start(t); o.stop(t + dur + 0.02);
   },
   pass(combo, perfect){
     const step = Math.min(combo - 1, 9);
-    const f = 523.25 * Math.pow(2, step / 12);
-    this.blip(f, 0.30, 'sine', 0.24);
-    this.blip(f * 1.5, 0.22, 'triangle', 0.09);
+    const scale=[0,2,4,7,9,12,14,16,19,21];
+    const f = 392 * Math.pow(2, scale[step] / 12);
+    this.blip(f, 0.46, 'sine', 0.16);
+    this.blip(f * 1.5, 0.38, 'sine', 0.045);
     if (combo >= 3) this.blip(f * 3, 0.16, 'sine', 0.05);
     if (perfect){                       // a brighter third on top
       this.blip(f * 2, 0.26, 'triangle', 0.10);
@@ -643,10 +654,10 @@ const Snd = {
     else this.coinChain = Math.min(this.coinChain + 1, 8);
     this.coinLast = t;
 
-    const f = 1046.5 * Math.pow(2, this.coinChain / 12);
+    const f = 659.25 * Math.pow(2, [0,2,4,7,9,12,14,16,19][this.coinChain] / 12);
     const note = (freq, when, dur, vol) => {
       const o = this.ac.createOscillator(), g = this.ac.createGain();
-      o.type = 'triangle';
+      o.type = 'sine';
       o.frequency.setValueAtTime(freq, when);
       g.gain.setValueAtTime(0.0001, when);
       g.gain.linearRampToValueAtTime(vol, when + 0.006);
@@ -656,6 +667,14 @@ const Snd = {
     };
     note(f,        t,         0.075, 0.15);
     note(f * 1.5,  t + 0.052, 0.130, 0.13);   // a fifth up, classic pickup shape
+  },
+  refuel(){
+    if(!this.ready || !this.on)return;
+    [392,493.88,587.33,783.99].forEach((f,i)=>{
+      const t=this.ac.currentTime+i*.085,o=this.ac.createOscillator(),g=this.ac.createGain();
+      o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.095,t+.025);g.gain.exponentialRampToValueAtTime(.0001,t+.55);
+      o.connect(g).connect(this.master);o.start(t);o.stop(t+.6);
+    });
   },
   dead(){
     if (!this.ready || !this.on) return;
@@ -674,6 +693,28 @@ const Snd = {
 // ===================================================================
 //  STATE
 // ===================================================================
+const RUN = {fuel:100, passed:0, launched:false, pace:.95, lowWarned:false};
+const FUEL = {burn:2.2, refill:45, low:22};
+function targetPace(n){return .95 + .50 * Math.min(n / 12, 1)}
+function stepRun(dt){
+  RUN.pace+=(targetPace(RUN.passed)-RUN.pace)*(1-Math.exp(-dt*2.2));
+  if(air.down && RUN.fuel>0) RUN.fuel=Math.max(0,RUN.fuel-dt*FUEL.burn*(.3+.7*air.pressure));
+  if(RUN.fuel<=0) air.pressure=0;
+  if(RUN.fuel<=FUEL.low && !RUN.lowWarned){RUN.lowWarned=true;notice('Yakıt azalıyor · ⛽ altın halkayı hedefle');haptic([45,65,45]);Snd.blip(261.63,.5,'sine',.07)}
+}
+let lastFuelUI='', noticeTimer=0;
+function updateRunHUD(){
+  const value=Math.ceil(RUN.fuel),key=value+':'+RUN.passed;
+  if(key===lastFuelUI)return;lastFuelUI=key;
+  document.getElementById('fuelVal').textContent='%'+value;
+  document.getElementById('fuelFill').style.transform='scaleX('+RUN.fuel/100+')';
+  document.getElementById('fuelMeter').setAttribute('aria-valuenow',String(value));
+  document.getElementById('fuelHUD').classList.toggle('low',value<=FUEL.low);
+  document.getElementById('fuelStatus').textContent=value===0?'MOTOR DURDU · Yakıt gerekiyor':value<=FUEL.low?'AZ YAKIT · ⛽ halkayı hedefle':'⛽ Altın halka +%45';
+  document.getElementById('paceVal').textContent=RUN.passed>=12?'5 / 5 · SABİT':(1+Math.floor(Math.min(RUN.passed,11)/3))+' / 5';
+  document.getElementById('gateVal').textContent=RUN.passed+' HALKA';
+}
+function notice(text){const n=document.getElementById('notice');n.textContent=text;n.classList.add('on');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.classList.remove('on'),4500)}
 let state = 'ready';                       // ready | play | over
 // ang = orientation of the shaft, angVel = angular velocity (real rotational state)
 const obj = { x:0, y:0, vx:0, vy:0, r:20, ang:0, angVel:0, py:0, bend:0 };
@@ -916,6 +957,7 @@ function buildBackdrop(){
 //  GAME FLOW
 // ===================================================================
 function reset(){
+  RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=.95;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
   cam.y = 0; cam.top = 0;
   obj.x = W * 0.5;  obj.y = H * 0.58;  obj.py = obj.y;
   obj.vx = 0; obj.vy = -40 * S;
@@ -929,7 +971,7 @@ function reset(){
   runCoins = 0; lastCoinY = 0;
   calm.t = 0; gatesToOrb = Math.round(rnd(CALM.every[0], CALM.every[1]));
   skyStage = 0; lastPal = ''; updateSky();
-  spawnY = obj.y - H * 0.42;
+  spawnY = obj.y - H * 0.34;
   while (spawnY > cam.y - H * 1.1) addHoop();
   uiScore.textContent = '0';
   showCombo(false);
@@ -938,20 +980,21 @@ function reset(){
 // The pass opening is unchanged; rings just gain an occasional slow drift.
 function addHoop(){
   const diff = Math.min(hoopId / 30, 1);                 // very gentle ramp
-  const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff));   // ~15% smaller than before
+  const isFuel = hoopId % 3 === 1;
+  const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff)) * (isFuel ? 1.10 : 1);   // ~15% smaller than before
   const prev = hoops.length ? hoops[hoops.length - 1].x : W * 0.5;
   const drift = W * P.hoopDrift;
   // ~18% of gates drift. Reserve the swing room BEFORE clamping, so a gate
   // near a wall still gets a real amplitude instead of being flattened to 0.
   let amp = 0;
   const edge = rx + 14 * S;
-  if (Math.random() < 0.18) amp = Math.min(W * 0.085, Math.max(0, (W - edge * 2) * 0.5 - 4 * S));
+  if (!isFuel && Math.random() < 0.18) amp = Math.min(W * 0.085, Math.max(0, (W - edge * 2) * 0.5 - 4 * S));
   const x = clamp(prev + rnd(-drift, drift), edge + amp, W - edge - amp);
 
   hoops.push({
-    id: hoopId++, x, homeX: x, y: spawnY, rx, ry: rx * 0.30,
+    id: hoopId++, fuel:isFuel, x, homeX: x, y: spawnY, rx, ry: rx * 0.30,
     done: false, missed: false, pulse: 0, glow: 0,
-    seed: Math.random() * 6.2832, pal: pickRingPal(),
+    seed: Math.random() * 6.2832, pal: isFuel ? 'fuel' : pickRingPal(),
     amp, driftSpd: rnd(0.22, 0.40), flash: 0
   });
   if (hoops.length >= 2) maybeSpawnCoins(hoops[hoops.length - 2], hoops[hoops.length - 1], diff);
@@ -960,6 +1003,7 @@ function addHoop(){
 }
 
 function startGame(){
+  tapped=true;haptic(35);
   Snd.init(); Snd.resume();
   Snd.coinChain = 0;
   updateObjectText();
@@ -967,6 +1011,7 @@ function startGame(){
   state = 'play';
   document.getElementById('pauseBtn').style.display='block';
   document.getElementById('flightHint').style.opacity=1;
+  document.getElementById('startBtn').blur();document.getElementById('againBtn').blur();
   Snd.blip(392,.5,'sine',.10); Snd.blip(587.33,.6,'sine',.06);
   acc = 0; last = performance.now();
   document.getElementById('startScreen').classList.remove('on');
@@ -982,6 +1027,7 @@ function gameOver(){
   document.getElementById('flightHint').style.opacity=0;
   Snd.dead();
   Snd.wind(0, 0);
+  if(RUN.fuel<=0)document.getElementById('ovFell').textContent='Yakıt tükendi. Bir sonraki uçuşta altın halkaları hedefle.';
   if (score > best){
     best = score;
     try { localStorage.setItem('airlift_best', String(best)); } catch(e){}
@@ -1164,20 +1210,31 @@ const jet = { ox:0, oy:0, dx:0, dy:-1, res:{ core:0, lat:0, cr:1, fall:0, t:99, 
 
 function updateJet(dt){
   // The blower slides toward the finger, but with lag and a speed limit.
-  // That lag IS the steering angle — which means steering self-centres:
-  // hold still and the beam straightens out under you.
-  const targetX = clamp(air.px, 26 * S, W - 26 * S);
+  // It also refuses to abandon the object: the further the object has
+  // strayed from the finger, the more the slide target is pulled back
+  // toward it, so the stream stays catchable instead of flying off alone.
+  let want = air.px;
+  if (RUN.launched){
+    const stray = clamp(Math.abs(obj.x - air.px) / (W * 0.32), 0, 1);
+    want += (obj.x - air.px) * P.assist * stray;
+  }
+  const targetX = clamp(want, 26 * S, W - 26 * S);
   if (air.down){
     let dx = (targetX - air.baseX) * (1 - Math.exp(-dt * P.baseFollow));
     const maxStep = P.baseSpeed * dt;
     air.baseX += clamp(dx, -maxStep, maxStep);
   }
 
+  // The lag between finger and blower is still the steering lean, and it
+  // still self-centres — hold still and the beam straightens out under you.
+  // It is a smaller lean than before on purpose: the heavy lifting of
+  // steering is now done by the beam tracking your finger and by the
+  // stream (P.center) holding on to whatever is riding in it.
   air.tiltRaw = air.down ? clamp((air.px - air.baseX) / P.tiltRef, -1, 1) * P.tiltMax : 0;
   air.tilt += (air.tiltRaw - air.tilt) * (1 - Math.exp(-dt * 11));
 
   // pressure: quick attack, quicker fade-out (never an instant cut)
-  if (air.down) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
+  if (air.down && RUN.fuel>0) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
   else          air.pressure *= Math.exp(-dt * P.release);
   if (air.pressure < 0.0005) air.pressure = 0;
 
@@ -1215,6 +1272,10 @@ function sampleJet(x, y){
 //  PHYSICS STEP — fixed 1/120 s
 // ===================================================================
 function physics(dt){
+  if(state!=="play")return;
+  if(!RUN.launched){if(!air.down){updateJet(dt);return}RUN.launched=true}
+  stepRun(dt);
+  dt *= RUN.pace;
   tSec += dt;
   updateJet(dt);
 
@@ -1385,6 +1446,9 @@ function physics(dt){
   // visual flex of the vane, driven by real angular motion
   obj.bend += (clamp(obj.angVel * 0.16, -1, 1) - obj.bend) * (1 - Math.exp(-dt * 8));
 
+  // Bound travel speed while retaining each object's aerodynamic character.
+  obj.vx=clamp(obj.vx,-300*S,300*S);
+  obj.vy=clamp(obj.vy,-310*S,430*S);
   // --- integrate position ---------------------------------------------
   obj.x += obj.vx * dt;
   obj.y += obj.vy * dt;
@@ -1455,6 +1519,7 @@ function hoopLogic(){
     // miss: climbed past the ring without going through it
     if (!h.done && !h.missed && obj.y < h.y - 30 * S){
       h.missed = true;
+      haptic(14);                                   // a small nudge: that one got away
       if (combo > 0){ combo = 0; showCombo(false); }
     }
     if (h.amp) h.x = h.homeX + Math.sin(tSec * h.driftSpd + h.seed) * h.amp;
@@ -1469,6 +1534,13 @@ function hoopLogic(){
 }
 
 function onPass(h, offRatio){
+  RUN.passed++;
+  if(h.fuel){
+    const gained=Math.min(FUEL.refill,100-RUN.fuel);RUN.fuel=Math.min(100,RUN.fuel+FUEL.refill);RUN.lowWarned=RUN.fuel<=FUEL.low;
+    pops.push({x:h.x,y:h.y-44*S,t:0,txt:'⛽ +%'+Math.round(gained),big:true,gold:true});
+    burst(h.x,h.y,42,'gold',.85);Snd.refuel();haptic([60,40,60,40,110]);
+  }
+  updateRunHUD();
   combo++;
   const bonus = Math.min(combo, 10);
   const centred = offRatio < 0.28;
@@ -1476,7 +1548,12 @@ function onPass(h, offRatio){
   score += pts;
   uiScore.textContent = score;
   Snd.pass(combo, centred);
-  haptic(centred ? [12,35,20] : 10);
+  // every ring is felt: a solid thump, a double tap when it is perfect,
+  // and a longer roll on each 5-ring combo milestone
+  if(!h.fuel){
+    const milestone = combo % 5 === 0;
+    haptic(milestone ? [45,45,45,45,100] : centred ? [30,35,75] : 55);
+  }
   h.flash = centred ? 1 : 0.42;                  // ring glows, brighter if perfect
   burst(h.x, h.y, centred ? 48 : 28, centred ? 'perfect' : 'blue', centred ? 1.25 : 1);
   if (centred){
@@ -1983,6 +2060,7 @@ function draw(){
 // -------------------------------------------------------------------
 // Four curated pastel families — designed, not random RGB.
 const RING_PAL = {
+  fuel:{lite:[255,245,186],mid:[255,192,69],deep:[210,123,27],rim:'182,105,22'},
   coral: { lite:[255,228,214], mid:[255,168,142], deep:[233,122,101], rim:'198,96,80'  },
   lilac: { lite:[238,229,255], mid:[188,168,242], deep:[147,125,210], rim:'120,100,182' },
   mint:  { lite:[221,250,237], mid:[138,227,191], deep:[ 82,192,152], rim:'58,150,120'  },
@@ -2043,6 +2121,13 @@ function drawHoop(h, cy, back){
 
   ctx.save();
   ctx.translate(h.x, sy);
+  if(h.fuel && !back){
+    ctx.save();ctx.shadowColor='#ffbe55';ctx.shadowBlur=12*S;
+    ctx.strokeStyle=h.done?'#b6f4c9':'#ffdf8c';ctx.lineWidth=2*S;
+    ctx.setLineDash([6*S,5*S]);ctx.beginPath();ctx.ellipse(0,0,rx+9*S,ry+7*S,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    const by=-ry-40*S;ctx.fillStyle='#342c1a';roundRect(-65*S,by,130*S,25*S,9*S);ctx.fill();ctx.stroke();
+    ctx.shadowBlur=0;ctx.fillStyle=h.done?'#b6f4c9':'#ffe8a4';ctx.font='800 '+(12*S)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.done?'⛽ YAKIT ALINDI':'⛽ YAKIT +%45',0,by+12*S);ctx.restore();
+  }
   ctx.lineCap = 'round';
   ctx.shadowColor=sk.mid;ctx.shadowBlur=10*S;
 
@@ -2494,36 +2579,22 @@ function paintFeather(c, L, Vw, u, bend){
 }
 
 function drawBlower(cy){
-  const oy = jet.oy - cy;
-  const p = air.pressure;
-  ctx.save();
-  ctx.translate(jet.ox, oy);
-
-  if (p > 0.02){
-    ctx.fillStyle = 'rgba(120,200,255,' + (p * 0.30).toFixed(3) + ')';
-    ctx.beginPath(); ctx.arc(0, 6 * S, (34 + p * 22) * S, 0, 6.2832); ctx.fill();
+  const oy=jet.oy-cy,p=air.pressure;
+  ctx.save();ctx.translate(jet.ox,oy);ctx.scale(S,S);
+  const hot=RUN.fuel<=FUEL.low?'#ff8564':'#ffc866';
+  ctx.fillStyle='#06162688';ctx.beginPath();ctx.ellipse(0,32,58,10,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#80ecd366';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,31,52,8,0,0,Math.PI*2);ctx.stroke();
+  for(const x of [-37,25]){
+    const g=ctx.createLinearGradient(x,0,x+12,0);g.addColorStop(0,'#79582b');g.addColorStop(.45,'#e8bd76');g.addColorStop(1,'#73512d');ctx.fillStyle=g;roundRect(x,-4,12,30,5);ctx.fill();
+    ctx.fillStyle='#10252b';roundRect(x+3,0,6,22,2);ctx.fill();ctx.fillStyle=hot;roundRect(x+3,22-22*RUN.fuel/100,6,Math.max(.01,22*RUN.fuel/100),2);ctx.fill();
   }
-
-  const w = 30 * S, h = 26 * S;
-
-  ctx.strokeStyle='#9df9d1';ctx.lineWidth=1.5*S;ctx.beginPath();ctx.ellipse(0,25*S,48*S,10*S,0,0,Math.PI*2);ctx.stroke();
-  ctx.rotate(air.tilt);
-  ctx.fillStyle = '#41607a';
-  roundRect(-w * 0.62, -h, w * 1.24, h * 0.9, 7 * S); ctx.fill();
-  ctx.fillStyle = '#5b83a3';
-  roundRect(-w * 0.44, -h * 0.95, w * 0.88, h * 0.55, 5 * S); ctx.fill();
-  ctx.rotate(-air.tilt);
-
-  const metal=ctx.createLinearGradient(-w,0,w,0);metal.addColorStop(0,'#1b4350');metal.addColorStop(.45,'#497d81');metal.addColorStop(1,'#16323f');ctx.fillStyle = metal;
-  roundRect(-w, -h * 0.28, w * 2, h * 1.5, 12 * S); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.20)';
-  roundRect(-w * 0.8, -h * 0.16, w * 1.6, h * 0.4, 8 * S); ctx.fill();
-
-  ctx.fillStyle = 'rgba(255,255,255,.25)';
-  roundRect(-w * 0.7, h * 0.72, w * 1.4, 5 * S, 3 * S); ctx.fill();
-  ctx.fillStyle = p > 0.75 ? '#ffd166' : '#7fd4ff';
-  roundRect(-w * 0.7, h * 0.72, Math.max(w * 1.4 * p, 0.001), 5 * S, 3 * S); ctx.fill();
-
+  const body=ctx.createLinearGradient(-26,0,26,0);body.addColorStop(0,'#204454');body.addColorStop(.42,'#648e96');body.addColorStop(1,'#1c3b4b');ctx.fillStyle=body;roundRect(-27,-8,54,37,11);ctx.fill();ctx.strokeStyle='#96c7c777';ctx.lineWidth=1;ctx.stroke();
+  ctx.save();ctx.rotate(air.tilt);ctx.fillStyle='#122e3d';roundRect(-20,-30,40,26,7);ctx.fill();ctx.strokeStyle='#c3e4d8';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,-28,18,6,0,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle=p>.02?'#9af9e1':'#355963';ctx.shadowColor='#7affd9';ctx.shadowBlur=p*18;ctx.beginPath();ctx.ellipse(0,-28,14,3,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.restore();
+  ctx.save();ctx.translate(0,9);ctx.fillStyle='#0d2534';ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.rotate(tSec*(3+p*22));ctx.fillStyle='#9fbeba';
+  for(let i=0;i<6;i++){ctx.rotate(Math.PI/3);ctx.beginPath();ctx.moveTo(2,0);ctx.quadraticCurveTo(11,-9,11,0);ctx.lineTo(4,3);ctx.fill()}ctx.restore();
+  ctx.fillStyle='#e3c18a';ctx.beginPath();ctx.arc(0,9,3,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#183240';ctx.lineWidth=3;for(let y=0;y<3;y++){ctx.beginPath();ctx.moveTo(-23,2+y*6);ctx.lineTo(-17,2+y*6);ctx.moveTo(17,2+y*6);ctx.lineTo(23,2+y*6);ctx.stroke()}
   ctx.restore();
 }
 
@@ -2578,6 +2649,7 @@ function frame(now){
     acc = 0;
   }
 
+  updateRunHUD();
   draw();
 }
 
@@ -2586,17 +2658,32 @@ function frame(now){
 // ===================================================================
 let hapticsOn=true;
 try{hapticsOn=localStorage.getItem('airlift_haptics')!=='false'; Snd.on=localStorage.getItem('airlift_sound')!=='false'}catch(e){}
-function haptic(pattern){if(tapped && hapticsOn && navigator.vibrate)try{navigator.vibrate(pattern)}catch(e){}}
+function haptic(pattern){
+  if(!tapped || !hapticsOn || typeof navigator.vibrate!=='function')return false;
+  try{return navigator.vibrate(pattern)}catch(e){return false}
+}
 const hb=document.getElementById('hapticBtn'), sb=document.getElementById('sndBtn');
-function syncSettings(){hb.textContent=navigator.vibrate?(hapticsOn?'TİTREŞİM AÇIK':'TİTREŞİM YOK'):'TİTREŞİM YOK';hb.disabled=!navigator.vibrate;hb.title=navigator.vibrate?'Titreşimi aç / kapat':'Bu tarayıcı titreşimi desteklemiyor';hb.setAttribute('aria-pressed',String(hapticsOn&&!!navigator.vibrate));sb.textContent=Snd.on?'SES AÇIK':'SES YOK';sb.setAttribute('aria-label','Sesi aç veya kapat');sb.setAttribute('aria-pressed',String(Snd.on))}
-hb.addEventListener('click',()=>{hapticsOn=!hapticsOn;tapped=true;haptic(12);try{localStorage.setItem('airlift_haptics',String(hapticsOn))}catch(e){}syncSettings()});
+function syncSettings(){
+  const supported=typeof navigator.vibrate==='function';
+  hb.textContent=supported?(hapticsOn?'TİTREŞİM AÇIK':'TİTREŞİM KAPALI'):'TİTREŞİM · BİLGİ';
+  hb.disabled=false;hb.title='Titreşim ayarı ve deneme';hb.setAttribute('aria-pressed',String(supported&&hapticsOn));
+  sb.textContent=Snd.on?'SES AÇIK':'SES YOK';sb.setAttribute('aria-label','Sesi aç veya kapat');sb.setAttribute('aria-pressed',String(Snd.on));
+}
+hb.addEventListener('click',()=>{
+  tapped=true;
+  if(typeof navigator.vibrate!=='function'){notice('Bu tarayıcı oyun titreşimini desteklemiyor. iPhone/Safari’de web oyunundan titreşim başlatılamaz.');return}
+  hapticsOn=!hapticsOn;
+  if(hapticsOn){const accepted=haptic([70,50,70]);notice(accepted?'Titreşim açık · Test atımı gönderildi. Hissetmiyorsan telefonun titreşim ve sessiz mod ayarlarını kontrol et.':'Tarayıcı titreşimi engelledi. Siteyi doğrudan tarayıcıda açıp tekrar dene.')}
+  else {navigator.vibrate(0);notice('Titreşim kapalı')}
+  try{localStorage.setItem('airlift_haptics',String(hapticsOn))}catch(e){}syncSettings();
+});
 function pauseGame(){if(state!=='play')return;state='paused';ptUp();air.down=false;air.pressure=0;Snd.wind(0,0);document.getElementById('pauseScreen').classList.add('on');document.getElementById('pauseBtn').style.display='none'}
 function resumeGame(){if(state!=='paused')return;state='play';last=performance.now();acc=0;Snd.resume();document.getElementById('pauseScreen').classList.remove('on');document.getElementById('pauseBtn').style.display='block'}
 document.getElementById('pauseBtn').addEventListener('click',pauseGame);
 document.getElementById('resumeBtn').addEventListener('click',resumeGame);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame()});
 window.addEventListener('blur',pauseGame);
-window.addEventListener('keydown',e=>{if(e.code==='Space' && state==='play' && e.target===document.body){e.preventDefault();air.down=true;Snd.init();Snd.resume();document.getElementById('flightHint').style.opacity=0}if(state==='play' && ['ArrowLeft','ArrowRight'].includes(e.code)){e.preventDefault();air.px=clamp(air.px+(e.code==='ArrowLeft'?-24:24)*S,0,W)}if(e.code==='Escape'){state==='paused'?resumeGame():pauseGame()}});
+window.addEventListener('keydown',e=>{if(e.code==='Space' && state==='play' && e.target===document.body){e.preventDefault();air.down=true;Snd.init();Snd.resume();document.getElementById('flightHint').style.opacity=0}if(state==='play' && ['ArrowLeft','ArrowRight'].includes(e.code)){e.preventDefault();air.px=clamp(air.px+(e.code==='ArrowLeft'?-34:34)*S,0,W)}if(e.code==='Escape'){state==='paused'?resumeGame():pauseGame()}});
 window.addEventListener('keyup',e=>{if(e.code==='Space')ptUp()});
 syncSettings();
 resize();
@@ -2611,6 +2698,7 @@ requestAnimationFrame(frame);
 // then call AIRLIFT.applyProfile() to re-resolve the scaled values.
 window.AIRLIFT = {
   P, OBJ, PROFILES, setObject, applyProfile,
+  get fuel(){return RUN.fuel},get pace(){return RUN.pace},get passed(){return RUN.passed},
   obj, air, cam, jet, sampleJet, physics, draw, hoops: () => hoops,
   coins: () => coins, orbs: () => orbs, calm, calmF, addCoin, spendCoins, loadCoins, saveCoins, stepParts,
   OBJECT_ORDER, setObject, selectObject, unlockObject, loadObjects, keyOf,
@@ -2626,3 +2714,4 @@ window.AIRLIFT = {
 </script>
 </body>
 </html>
+
