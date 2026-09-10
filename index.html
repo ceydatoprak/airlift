@@ -693,11 +693,19 @@ const Snd = {
 // ===================================================================
 //  STATE
 // ===================================================================
+<<<<<<< HEAD
 const RUN = {fuel:100, passed:0, launched:false, pace:.95, lowWarned:false};
 const FUEL = {burn:2.2, refill:45, low:22};
 function targetPace(n){return .95 + .50 * Math.min(n / 12, 1)}
 function stepRun(dt){
   RUN.pace+=(targetPace(RUN.passed)-RUN.pace)*(1-Math.exp(-dt*2.2));
+=======
+const RUN = {fuel:100, passed:0, launched:false, pace:.68, lowWarned:false};
+const FUEL = {burn:2.2, refill:45, low:22};
+function targetPace(n){return .68 + .42 * Math.min(n / 18, 1)}
+function stepRun(dt){
+  RUN.pace+=(targetPace(RUN.passed)-RUN.pace)*(1-Math.exp(-dt*1.6));
+>>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   if(air.down && RUN.fuel>0) RUN.fuel=Math.max(0,RUN.fuel-dt*FUEL.burn*(.3+.7*air.pressure));
   if(RUN.fuel<=0) air.pressure=0;
   if(RUN.fuel<=FUEL.low && !RUN.lowWarned){RUN.lowWarned=true;notice('Yakıt azalıyor · ⛽ altın halkayı hedefle');haptic([45,65,45]);Snd.blip(261.63,.5,'sine',.07)}
@@ -711,7 +719,11 @@ function updateRunHUD(){
   document.getElementById('fuelMeter').setAttribute('aria-valuenow',String(value));
   document.getElementById('fuelHUD').classList.toggle('low',value<=FUEL.low);
   document.getElementById('fuelStatus').textContent=value===0?'MOTOR DURDU · Yakıt gerekiyor':value<=FUEL.low?'AZ YAKIT · ⛽ halkayı hedefle':'⛽ Altın halka +%45';
+<<<<<<< HEAD
   document.getElementById('paceVal').textContent=RUN.passed>=12?'5 / 5 · SABİT':(1+Math.floor(Math.min(RUN.passed,11)/3))+' / 5';
+=======
+  document.getElementById('paceVal').textContent=RUN.passed>=18?'5 / 5 · SABİT':(1+Math.floor(Math.min(RUN.passed,17)/4.5))+' / 5';
+>>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   document.getElementById('gateVal').textContent=RUN.passed+' HALKA';
 }
 function notice(text){const n=document.getElementById('notice');n.textContent=text;n.classList.add('on');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.classList.remove('on'),4500)}
@@ -957,7 +969,11 @@ function buildBackdrop(){
 //  GAME FLOW
 // ===================================================================
 function reset(){
+<<<<<<< HEAD
   RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=.95;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
+=======
+  RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=.68;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
+>>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   cam.y = 0; cam.top = 0;
   obj.x = W * 0.5;  obj.y = H * 0.58;  obj.py = obj.y;
   obj.vx = 0; obj.vy = -40 * S;
@@ -1538,7 +1554,11 @@ function onPass(h, offRatio){
   if(h.fuel){
     const gained=Math.min(FUEL.refill,100-RUN.fuel);RUN.fuel=Math.min(100,RUN.fuel+FUEL.refill);RUN.lowWarned=RUN.fuel<=FUEL.low;
     pops.push({x:h.x,y:h.y-44*S,t:0,txt:'⛽ +%'+Math.round(gained),big:true,gold:true});
+<<<<<<< HEAD
     burst(h.x,h.y,42,'gold',.85);Snd.refuel();haptic([60,40,60,40,110]);
+=======
+    burst(h.x,h.y,42,'gold',.85);Snd.refuel();haptic([50,45,70]);
+>>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   }
   updateRunHUD();
   combo++;
@@ -1548,12 +1568,16 @@ function onPass(h, offRatio){
   score += pts;
   uiScore.textContent = score;
   Snd.pass(combo, centred);
+<<<<<<< HEAD
   // every ring is felt: a solid thump, a double tap when it is perfect,
   // and a longer roll on each 5-ring combo milestone
   if(!h.fuel){
     const milestone = combo % 5 === 0;
     haptic(milestone ? [45,45,45,45,100] : centred ? [30,35,75] : 55);
   }
+=======
+  if(!h.fuel)haptic(centred ? [35,40,45] : 30);
+>>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   h.flash = centred ? 1 : 0.42;                  // ring glows, brighter if perfect
   burst(h.x, h.y, centred ? 48 : 28, centred ? 'perfect' : 'blue', centred ? 1.25 : 1);
   if (centred){
