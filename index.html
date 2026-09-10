@@ -1,0 +1,2628 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#081c30">
+<title>AIRLIFT · Gece Yolculuğu</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#bfe1ff}
+  body{
+    font-family:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    touch-action:none;overscroll-behavior:none;
+    user-select:none;-webkit-user-select:none;
+    color:#123;
+  }
+  #wrap{position:fixed;inset:0}
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed;inset:0;pointer-events:none;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-right,0px) + 14px)
+            calc(env(safe-area-inset-bottom,0px) + 12px) calc(env(safe-area-inset-left,0px) + 14px);
+  }
+  .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .pill{
+    background:rgba(255,255,255,.62);
+    border:1.5px solid rgba(255,255,255,.85);
+    border-radius:18px;padding:7px 14px;
+    box-shadow:0 4px 14px rgba(40,80,120,.12);
+    line-height:1.15;
+  }
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.14em;opacity:.55;text-transform:uppercase}
+  .val{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .val.small{font-size:17px;opacity:.75}
+  #comboTag{
+    position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 74px);
+    transform:translate(-50%,0) scale(.6);
+    font-size:19px;font-weight:900;letter-spacing:.02em;
+    color:#fff;background:linear-gradient(180deg,#ffb44d,#ff7a3d);
+    padding:5px 16px;border-radius:16px;opacity:0;
+    box-shadow:0 6px 18px rgba(255,120,60,.35);
+    transition:opacity .18s ease, transform .18s cubic-bezier(.2,1.7,.4,1);
+  }
+  #comboTag.on{opacity:1;transform:translate(-50%,0) scale(1)}
+
+  /* ---------- coin counter ---------- */
+  #coinPill{
+    position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);
+    transform:translateX(-50%);
+    display:flex;align-items:center;gap:7px;
+    background:rgba(255,255,255,.62);
+    border:1.5px solid rgba(255,255,255,.85);
+    border-radius:18px;padding:7px 13px 7px 10px;
+    box-shadow:0 4px 14px rgba(40,80,120,.12);
+  }
+  #coinPill.bump{animation:coinBump .28s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes coinBump{
+    0%{transform:translateX(-50%) scale(1)}
+    40%{transform:translateX(-50%) scale(1.16)}
+    100%{transform:translateX(-50%) scale(1)}
+  }
+  .coinIcon{
+    width:17px;height:17px;border-radius:50%;flex:none;
+    background:radial-gradient(circle at 34% 30%,#fff3b0 0%,#ffd944 34%,#f0a92a 72%,#d98716 100%);
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5), 0 1px 2px rgba(150,100,10,.28);
+  }
+  #coinVal{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+  .coinLine{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    margin:-6px 0 16px;font-size:15px;font-weight:800;color:#c88a1a;
+  }
+  .coinLine .coinIcon{width:15px;height:15px}
+  .coinTotal{font-size:12px;font-weight:700;opacity:.5;margin-left:4px;color:#123}
+  .startCoins{
+    display:flex;align-items:center;justify-content:center;gap:7px;
+    margin:2px 0 14px;font-size:14px;font-weight:800;color:#c88a1a;opacity:.9;
+  }
+
+  /* ---------- object shop ---------- */
+  .btnAlt{
+    pointer-events:auto;display:block;width:100%;border:0;cursor:pointer;
+    font:inherit;font-size:15px;font-weight:800;letter-spacing:.02em;color:#2f6ea8;
+    background:rgba(120,180,235,.20);
+    padding:12px;border-radius:18px;margin-top:10px;
+    transition:transform .1s ease;
+  }
+  .btnAlt:active{transform:scale(.96)}
+  .shopCard{width:min(400px,94vw);max-height:88vh;display:flex;flex-direction:column}
+  .objGrid{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+    margin:14px 0 4px;padding:2px;
+  }
+  .objCard{
+    background:rgba(120,180,235,.13);border:2px solid transparent;
+    border-radius:18px;padding:10px 8px 9px;text-align:center;
+  }
+  .objCard.sel{border-color:#54b9ff;background:rgba(84,185,255,.18)}
+  .objCard.locked{opacity:.82}
+  .objCard canvas{display:block;margin:0 auto 4px;width:62px;height:62px}
+  .objName{font-size:12.5px;font-weight:800;letter-spacing:-.01em;margin-bottom:5px}
+  .objBtn{
+    pointer-events:auto;width:100%;border:0;cursor:pointer;font:inherit;
+    font-size:12px;font-weight:800;letter-spacing:.03em;color:#fff;
+    background:linear-gradient(180deg,#54b9ff,#2f8fe8);
+    padding:8px 4px;border-radius:12px;transition:transform .1s ease;
+  }
+  .objBtn:active{transform:scale(.94)}
+  .objBtn.own{background:rgba(90,120,150,.22);color:#3b5c78}
+  .objBtn.cur{background:linear-gradient(180deg,#6fdca0,#35b877)}
+  .objBtn.poor{background:rgba(150,160,172,.30);color:#6b7a89}
+  .objBtn .px{display:inline-flex;align-items:center;gap:4px;justify-content:center}
+  .objBtn .coinIcon{width:12px;height:12px;box-shadow:none}
+  .shake{animation:shk .32s}
+  @keyframes shk{
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)}
+    45%{transform:translateX(5px)} 70%{transform:translateX(-3px)}
+  }
+  #shopMsg{
+    font-size:12px;font-weight:800;color:#e2574c;height:15px;
+    opacity:0;transition:opacity .2s ease;
+  }
+  #shopMsg.on{opacity:1}
+
+  /* ---------- overlays ---------- */
+  .screen{
+    position:fixed;inset:0;display:none;place-items:center;
+    padding:24px;pointer-events:none;
+  }
+  .screen.on{display:grid}
+  .card{
+    pointer-events:auto;text-align:center;width:min(340px,88vw);
+    background:rgba(255,255,255,.82);
+    border:1.5px solid rgba(255,255,255,.9);
+    border-radius:28px;padding:26px 22px 22px;
+    box-shadow:0 18px 50px rgba(30,70,110,.20);
+    animation:pop .3s cubic-bezier(.2,1.5,.4,1) both;
+  }
+  @keyframes pop{from{transform:scale(.9) translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .title{font-size:34px;font-weight:900;letter-spacing:-.02em;margin-bottom:4px}
+  .sub{font-size:14px;line-height:1.5;opacity:.62;font-weight:600}
+  .scores{display:flex;gap:12px;margin:18px 0 20px}
+  .scoreBox{flex:1;background:rgba(120,180,235,.16);border-radius:18px;padding:10px 6px}
+  .scoreBox .lbl{margin-bottom:2px}
+  .scoreBox .n{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums}
+  .btn{
+    pointer-events:auto;display:block;width:100%;border:0;cursor:pointer;
+    font:inherit;font-size:18px;font-weight:800;letter-spacing:.02em;color:#fff;
+    background:linear-gradient(180deg,#54b9ff,#2f8fe8);
+    padding:15px;border-radius:20px;
+    box-shadow:0 8px 20px rgba(47,143,232,.38);
+    transition:transform .1s ease;
+  }
+  .btn:active{transform:scale(.96)}
+  .hintHand{
+    width:56px;height:56px;margin:16px auto 2px;border-radius:50%;
+    background:radial-gradient(circle at 38% 34%,#fff,rgba(255,255,255,.25));
+    border:2px solid rgba(255,255,255,.9);
+    box-shadow:0 6px 18px rgba(40,90,140,.18);
+    animation:sway 2.1s ease-in-out infinite;
+  }
+  @keyframes sway{0%,100%{transform:translateX(-26px) scale(.94)}50%{transform:translateX(26px) scale(1.04)}}
+  #sndBtn{
+    position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);
+    bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+    pointer-events:auto;width:42px;height:42px;border:0;border-radius:14px;
+    background:rgba(255,255,255,.6);font-size:18px;cursor:pointer;
+    box-shadow:0 4px 12px rgba(40,80,120,.12);
+  }
+
+  html,body{background:#081c30;color:#e8f7f4}
+  .pill,#coinPill{background:rgba(8,27,44,.78);border:1px solid #a6f7e126;box-shadow:0 8px 25px #0002;border-radius:14px}
+  .lbl{color:#a9c8ca;opacity:1;font-size:9px;letter-spacing:.18em}.val{color:#effff6}
+  .screen{background:linear-gradient(180deg,#06162420,#061624aa);padding:18px;overflow:auto;touch-action:pan-y}
+  .card{background:linear-gradient(145deg,#122e40f5,#0b1e30f7);border:1px solid #b7ffdf35;box-shadow:0 24px 90px #0006;border-radius:28px;padding:28px 24px;color:#effcf8;max-height:calc(100dvh - 42px);overflow:auto;touch-action:pan-y}
+  .title{font-size:46px;letter-spacing:.12em;font-weight:800}.sub{color:#b3ced0;opacity:1;font-size:13px;line-height:1.8}
+  .edition{font-size:10px;letter-spacing:.3em;color:#9ef3d1;margin:0 0 12px}
+  .btn,.objBtn{background:linear-gradient(120deg,#b9f7d4,#65dbc5);color:#0b3038;box-shadow:0 7px 24px #60e9ba20;border-radius:14px;min-height:48px}
+  .btnAlt{color:#c5e2e1;background:#a6e1d00d;border:1px solid #b3e6dc25;border-radius:14px;min-height:46px}
+  .scoreBox,.objCard{background:#d1ffee08}.objCard.sel{border-color:#92edca;background:#85ebc314}.objBtn.own{background:#bdecdc16;color:#bdd9d7}.objBtn.poor{color:#8fa8ad;background:#99bccb15}.objBtn.cur{background:#8ee6c2;color:#103b35}
+  .coinTotal{color:#c4dfd4;opacity:.8}.coinLine,.startCoins{color:#f4dba0}.scoreBox .n{color:#c4ffe2}
+  .hintHand{background:radial-gradient(circle at 35% 30%,#c1ffe7,#55c8b744);border:1px solid #baffdf88;box-shadow:0 0 36px #67ecc32a;width:38px;height:38px;margin-top:18px}
+  #sndBtn,#hapticBtn,#pauseBtn{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);height:44px;min-width:44px;border:1px solid #baf8e32e;border-radius:14px;background:#102b3eeb;color:#c9f4e3;font:700 11px system-ui;cursor:pointer;z-index:5}
+  #sndBtn{right:14px;width:54px;font-size:11px}#hapticBtn{right:76px;padding:0 12px}#pauseBtn{left:14px;padding:0 12px;display:none}
+  #flightHint{position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 75px);left:0;right:0;text-align:center;pointer-events:none;color:#c9ece0;font-size:11px;letter-spacing:.09em;opacity:0;transition:opacity .4s}
+  button:focus-visible{outline:2px solid #ffe1a6;outline-offset:4px}.objGrid{touch-action:pan-y;flex-shrink:1;min-height:0}.shopCard{width:min(400px,94vw)}
+  @media(max-height:620px){.card{padding:16px 22px}.hintHand{display:none}.title{font-size:30px}.sub{font-size:12px}.scores{margin:10px 0}.objGrid{grid-template-columns:repeat(3,1fr)}.edition{margin-bottom:5px}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="wrap"><canvas id="cv"></canvas></div>
+
+<div id="hud">
+  <div class="row">
+    <div class="pill"><div class="lbl">SKOR</div><div class="val" id="uiScore">0</div></div>
+    <div class="pill"><div class="lbl">REKOR</div><div class="val small" id="uiBest">0</div></div>
+  </div>
+  <div id="coinPill"><span class="coinIcon"></span><span id="coinVal">0</span></div>
+  <div id="comboTag">COMBO x2</div>
+</div>
+<button id="sndBtn" title="sound">&#128266;</button>
+
+<div class="screen on" id="startScreen">
+  <div class="card">
+    <div class="edition">GECE YOLCULUĞU / 01</div><div class="title">AIRLIFT</div>
+    <div class="sub">Basılı tut, hava akımını yükselt.<br>Sağa sola kaydır, rüzgâra yön ver.<br><span id="startLine">Float the feather through the rings.</span></div>
+    <div class="hintHand"></div>
+    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5">Uçuşun sırrı <b>rüzgârda.</b></div>
+    <div class="startCoins"><span class="coinIcon"></span><span id="startCoinVal">0</span></div>
+    <button class="btn" id="startBtn">UÇUŞA BAŞLA</button>
+    <button class="btnAlt" id="objBtn">HANGAR</button>
+  </div>
+</div>
+
+<div class="screen" id="shopScreen">
+  <div class="card shopCard">
+    <div class="title" style="font-size:26px;margin-bottom:2px">HANGAR</div>
+    <div class="startCoins" style="margin:4px 0 0"><span class="coinIcon"></span><span id="shopCoinVal">0</span></div>
+    <div id="shopMsg">Yeterli altın yok</div>
+    <div class="objGrid" id="objGrid"></div>
+    <button class="btn" id="shopClose">HAZIR</button>
+  </div>
+</div>
+
+<div class="screen" id="overScreen">
+  <div class="card">
+    <div class="title">UÇUŞ BİTTİ</div>
+    <div class="sub" id="ovFell">The feather drifted out of the air.</div>
+    <div class="scores">
+      <div class="scoreBox"><div class="lbl">SKOR</div><div class="n" id="ovScore">0</div></div>
+      <div class="scoreBox"><div class="lbl">REKOR</div><div class="n" id="ovBest">0</div></div>
+    </div>
+    <div class="coinLine">
+      <span class="coinIcon"></span><span id="ovCoins">+0</span>
+      <span class="coinTotal">TOPLAM <span id="ovCoinTotal">0</span></span>
+    </div>
+    <button class="btn" id="againBtn">YENİDEN UÇ</button>
+    <button class="btnAlt" id="objBtnOver">HANGAR</button>
+  </div>
+</div>
+
+<button id="hapticBtn" aria-label="Titreşim">TİTREŞİM</button><button id="pauseBtn" aria-label="Oyunu duraklat">Ⅱ DURAKLAT</button><div id="flightHint">BASILI TUT · RÜZGÂRI YÖNLENDİR</div>
+<div class="screen" id="pauseScreen"><div class="card"><div class="edition">BİR NEFES MOLASI</div><div class="title" style="font-size:28px">DURAKLATILDI</div><p class="sub" style="margin:14px 0">Hazır olduğunda yolculuğa devam et.</p><button class="btn" id="resumeBtn">DEVAM ET</button></div></div>
+<script>
+(() => {
+'use strict';
+
+// ===================================================================
+//  SETUP
+// ===================================================================
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d', { alpha:false });
+
+let W = 0, H = 0, DPR = 1, S = 1;      // S = scale relative to a 720px-tall reference
+const REF_H = 720;
+
+function resize(){
+  const oldW=W, oldH=H;
+  if (typeof pauseGame === 'function' && W > 0) pauseGame();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = cv.clientWidth; H = cv.clientHeight;
+  cv.width  = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  S = H / REF_H;
+  buildBackdrop();
+  tune();
+  if(oldW && oldH){
+    const sx=W/oldW,sy=H/oldH;
+    obj.x*=sx;obj.y*=sy;obj.py*=sy;obj.vx*=sx;obj.vy*=sy;
+    cam.y*=sy;cam.top*=sy;spawnY*=sy;lastCoinY*=sy;
+    air.baseX*=sx;air.px*=sx;air.py*=sy;
+    for(const h of hoops){h.x*=sx;h.homeX*=sx;h.y*=sy;h.rx*=sx;h.ry*=sx;h.amp*=sx}
+    for(const list of [parts,pops,coins,orbs]) for(const p of list){p.x*=sx;p.y*=sy}
+    applyProfile();obj.r=P.objR;
+  }
+}
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 120));
+
+// ===================================================================
+//  OBJECT PHYSICS PROFILES
+//  ------------------------------------------------------------------
+//  Everything that makes a flying object feel like *that* object lives
+//  in one profile. The physics step reads only from the active profile,
+//  so adding a football / balloon / paper plane later means adding a
+//  block here — not touching the simulation.
+//
+//  All values are unitless multipliers of the shared air constants
+//  (AIR below), except where noted, so profiles stay screen-size
+//  independent.
+// ===================================================================
+//  ONE physics path serves every object. Almost all of the personality is
+//  data, not code — only three optional terms have their own line:
+//    spinRoll  (balls roll instead of weathervaning)
+//    upright   (the balloon wants to stay the right way up)
+//    glide     (the paper plane turns speed + angle of attack into lift)
+//
+//  Field guide:
+//    mass      divides every AERODYNAMIC force (not gravity). Feather = 1.0
+//              is the reference, so its numbers are unchanged from before.
+//    dragEdge  1.0 = a sphere (drag is the same from every direction).
+//              Below 1.0 the object slips along its own axis: 0.18 feather,
+//              0.10 rocket. This single number does most of the work.
+//    angResp   torque turning the object ACROSS the wind (feather flutter).
+//    vane      torque turning the nose INTO its direction of travel
+//              (dart/rocket behaviour). Mutually exclusive with angResp.
+const PROFILES = {
+
+  feather: {
+    label:'Feather', art:'feather', behavior:'feather', price:0,
+    verb:'Float', fell:'drifted out of the air',
+
+    len        : 34,     // half-length along the shaft (px @ 720p ref)
+    wid        : 15,     // half-width of the vane
+    mass       : 1.00,   // reference mass — keeps the tuned feather identical
+
+    gravity    : 0.30,   // x base gravity — floats down slowly
+    lift       : 0.86,   // x base jet force — very easy to pick up
+    hMul       : 1.15,   // x horizontal authority of the jet
+    dragLin    : 2.05,   // still very draggy; just not sluggish
+    dragQuad   : 0.0165,
+    dragEdge   : 0.18,
+    airSpeed   : 910,    // strong air carries it up briskly
+    center     : 0.55,
+    turb       : 0.34,
+
+    flutter    : 190, flutterFreq: 0.85, gustChance: 0.55, gustPower: 1.9,
+
+    angDrag    : 3.1, angResp: 0.055, angFromVx: 0.0016,
+    angFlutter : 6.2, angMax: 6.5, alignAir: 2.4,
+
+    wallDamp   : 0.14, wallSlide: 0.86, wallSpin: 3.4
+  },
+
+  // Heavy, low-drag, carries momentum, rolls, bounces off walls.
+  football: {
+    label:'Football', art:'football', behavior:'ball', price:5,
+    verb:'Guide', fell:'dropped out of the air',
+
+    len:24, wid:24, mass:3.40,
+
+    gravity    : 0.88,   // falls fast when the air stops
+    lift       : 4.05,   // needs real air under it (divided by the big mass)
+    hMul       : 1.05,   // sluggish, but it must still be steerable
+    dragLin    : 0.75,   // slippery: momentum is kept
+    dragQuad   : 0.0040,
+    dragEdge   : 1.00,   // sphere — no preferred direction
+    airSpeed   : 620,    // once the air has hold of it, it really moves
+    center     : 1.80,   // the stream must keep hold of a heavy ball, or
+                         // sliding the blower simply abandons it mid-air
+    turb       : 0.05,
+
+    flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
+
+    angDrag    : 1.2, angResp: 0, angFromVx: 0,
+    angFlutter : 0, angMax: 14, alignAir: 0,
+    spinRoll   : 0.016,  // rotation follows horizontal travel
+
+    wallDamp   : 0.68, wallSlide: 0.97, wallSpin: 6.0   // proper elastic bounce
+  },
+
+  // Very light, very responsive, lively, bounces hard. Not floaty.
+  pingpong: {
+    label:'Ping-Pong', noun:'ping-pong ball', art:'pingpong', behavior:'ball', price:10,
+    verb:'Guide', fell:'bounced out of the air',
+
+    len:15, wid:15, mass:0.35,
+
+    gravity    : 0.78,   // drops properly — it is a ball, not a feather
+    lift       : 1.25,
+    hMul       : 1.70,   // very easy to push too far sideways
+    dragLin    : 0.95,   // sheds speed quickly, but does not hang in the air
+    dragQuad   : 0.0055,
+    dragEdge   : 1.00,
+    airSpeed   : 1240,   // shoots up when it is sitting in the stream
+    center     : 0.75,
+    turb       : 0.18,   // a little twitchy
+
+    flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
+
+    angDrag    : 1.0, angResp: 0, angFromVx: 0,
+    angFlutter : 0, angMax: 18, alignAir: 0,
+    spinRoll   : 0.022,
+
+    wallDamp   : 0.82, wallSlide: 0.99, wallSpin: 8.0   // springy
+  },
+
+  // Almost weightless, enormous drag: safe vertically, slow to steer.
+  balloon: {
+    label:'Balloon', art:'balloon', behavior:'balloon', price:15,
+    verb:'Guide', fell:'drifted out of the air',
+
+    len:27, wid:30, mass:0.45,
+
+    gravity    : 0.22,   // barely falls
+    lift       : 0.39,
+    hMul       : 0.92,
+    dragLin    : 2.55,   // huge surface area
+    dragQuad   : 0.0210,
+    dragEdge   : 0.95,   // near enough to round
+    airSpeed   : 815,    // still the slowest, but it gets somewhere
+    center     : 0.45,
+    turb       : 0.10,
+
+    flutter    : 34, flutterFreq: 0.55, gustChance: 0.35, gustPower: 1.2,
+
+    angDrag    : 2.2, angResp: 0, angFromVx: 0.0009,
+    angFlutter : 1.4, angMax: 3.0, alignAir: 0.8,
+    upright    : 5.5,    // rights itself — balloons hang the correct way up
+
+    wallDamp   : 0.22, wallSlide: 0.95, wallSpin: 1.2   // squashy, no bounce
+  },
+
+  // Orientation matters: it glides, and a bad angle stalls it.
+  plane: {
+    label:'Paper Plane', art:'plane', behavior:'plane', price:20,
+    verb:'Guide', fell:'stalled and dropped away',
+
+    len:30, wid:13, mass:0.90,
+
+    gravity    : 0.62,
+    lift       : 1.75,   // must be able to gain height, not just glide down
+    hMul       : 2.70,   // it slips sideways through air, so the jet needs
+                         // more direct horizontal bite to steer it
+    dragLin    : 0.76,   // carries forward momentum further
+    dragQuad   : 0.0052,
+    dragEdge   : 0.22,   // slips forward, resists sideways -> it glides
+    airSpeed   : 870,
+    center     : 0.90,
+    turb       : 0.10,
+
+    flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
+
+    angDrag    : 2.6, angResp: 0, angFromVx: 0,
+    angFlutter : 0, angMax: 5.0, alignAir: 0.6,
+    vane       : 1.40,   // noses toward its direction of travel...
+    level      : 4.00,   // ...but stays near horizontal, so it never goes
+                         //    nose-vertical during a climb. The balance of
+                         //    these two IS the glide angle.
+    jetPitch   : 2.00,   // the airstream pitches it over — the player's lever
+
+    wallDamp   : 0.38, wallSlide: 0.90, wallSpin: 3.0
+  },
+
+  // Streamlined dart. No engine — the blower is still the only thrust.
+  // Superb inside the stream, punishing the moment it slips out.
+  rocket: {
+    label:'Toy Rocket', art:'rocket', behavior:'rocket', price:25,
+    verb:'Guide', fell:'dropped out of the air',
+
+    len:28, wid:11, mass:1.90,
+
+    gravity    : 0.85,   // sinks fast once the air is gone
+    lift       : 3.60,   // superb climb rate while lined up in the stream
+    hMul       : 1.60,   // nose-on it is very slippery sideways; compensate
+    dragLin    : 0.70,
+    dragQuad   : 0.0045,
+    dragEdge   : 0.10,   // extremely streamlined along its axis
+    airSpeed   : 780,    // rides the stream fast when lined up
+    center     : 1.30,   // strongly held by the middle of the stream
+    turb       : 0.04,
+
+    flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
+
+    angDrag    : 4.2, angResp: 0, angFromVx: 0,
+    angFlutter : 0, angMax: 6.0, alignAir: 1.5,
+    vane       : 6.50,   // locks onto its flight direction
+
+    wallDamp   : 0.45, wallSlide: 0.94, wallSpin: 2.5
+  }
+};
+
+const OBJECT_ORDER = ['feather','football','pingpong','balloon','plane','rocket'];
+
+let OBJ = PROFILES.feather;
+
+// ===================================================================
+//  SHARED AIR / WORLD CONSTANTS  (the same for every object)
+// ===================================================================
+const P = {};
+function tune(){
+  // --- the air itself: identical no matter what is flying in it -----
+  P.gBase      = 1150 * S;      // reference gravity
+  P.jetFBase   = 4.2 * P.gBase; // reference jet force at the nozzle
+  P.range      = H * 0.78;      // how far the jet reaches
+  P.coneBase   = 30 * S;        // jet width at the nozzle
+  P.spread     = 0.34;          // jet widening per unit of distance
+  P.falloffPow = 1.35;          // force decay along the jet
+  P.hPush      = 0.52;          // horizontal authority of the jet (keep < 1)
+  P.attack     = 7.0;           // pressure rise rate
+  P.release    = 14.0;          // pressure fade rate (fast, but not a hard cut)
+  P.baseFollow = 2.6;           // how fast the blower slides under your finger
+  P.baseSpeed  = 0.95 * W;      // max blower slide speed (px/s)
+  P.tiltMax    = 0.42;          // max jet tilt (~24 deg)
+  P.tiltRef    = W * 0.30;      // finger offset that produces full tilt
+  P.nozzleY    = 74 * S;        // nozzle height above the bottom edge
+  P.camUp      = 3.4;
+  P.camDown    = 1.5;
+  P.camSlack   = H * 0.30;
+  P.gapMin     = H * 0.30;
+  P.gapMax     = H * 0.40;
+  P.hoopDrift  = 0.40;          // horizontal variation between hoops (x W)
+  P.coneNow    = P.coneBase;    // live cone, widened by Calm Air
+  P.spreadNow  = P.spread;
+  applyProfile();
+}
+
+// Resolves the active profile into concrete, screen-scaled values.
+// Call this after tune() or whenever the flying object is swapped.
+function applyProfile(){
+  const o = OBJ;
+  P.g        = P.gBase * o.gravity;
+  P.jetF     = P.jetFBase * o.lift;
+  P.center   = P.gBase * o.center;
+  P.turb     = P.gBase * o.turb;
+  P.dragLin  = o.dragLin;
+  P.dragQuad = o.dragQuad / S;
+  P.dragEdge = o.dragEdge;
+  P.airSpeed = o.airSpeed * S;
+  P.objLen   = o.len * S;
+  P.objWid   = o.wid * S;
+  P.objR     = o.wid * S;          // wall / death radius uses the slim axis
+  P.flutter  = o.flutter * S;
+  P.mass     = o.mass;
+  P.imass    = 1 / o.mass;         // aerodynamic forces are divided by mass
+  P.hMul     = o.hMul;
+  // optional behaviour terms — read as plain numbers in the step
+  P.spinRoll = o.spinRoll || 0;
+  P.upright  = o.upright  || 0;
+  P.vane     = o.vane     || 0;
+  P.jetPitch = o.jetPitch || 0;
+  P.level    = o.level    || 0;
+  P.glide    = (o.glide   || 0) / S;   // glide uses v^2, so it scales inversely
+}
+
+function setObject(name){
+  if (!PROFILES[name]) return;
+  OBJ = PROFILES[name];
+  applyProfile();
+}
+
+// ===================================================================
+//  AUDIO — tiny WebAudio kit: soft blips + a subtle wind bed
+// ===================================================================
+const Snd = {
+  ac:null, master:null, windGain:null, windFilter:null, on:true, ready:false,
+  init(){
+    if (this.ready) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    this.ac = new AC();
+    this.master = this.ac.createGain();
+    this.master.gain.value = 0.9;
+    this.master.connect(this.ac.destination);
+
+    // looping noise bed for the airflow
+    const len = Math.floor(this.ac.sampleRate * 2);
+    const buf = this.ac.createBuffer(1, len, this.ac.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++){            // brown-ish noise = softer than white
+      last = (last + Math.random()*2 - 1) * 0.5;
+      d[i] = last * 1.6;
+    }
+    const src = this.ac.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    this.windFilter = this.ac.createBiquadFilter();
+    this.windFilter.type = 'bandpass';
+    this.windFilter.frequency.value = 700;
+    this.windFilter.Q.value = 0.7;
+    this.windGain = this.ac.createGain();
+    this.windGain.gain.value = 0;
+    src.connect(this.windFilter).connect(this.windGain).connect(this.master);
+    src.start();
+    this.ready = true;
+  },
+  resume(){ if (this.ac && this.ac.state === 'suspended') this.ac.resume(); },
+  wind(pressure, tilt){
+    if (!this.ready) return;
+    const g = this.on ? pressure * pressure * 0.075 : 0;
+    this.windGain.gain.setTargetAtTime(g, this.ac.currentTime, 0.04);
+    this.windFilter.frequency.setTargetAtTime(
+      560 + pressure*820 + Math.abs(tilt)*300, this.ac.currentTime, 0.08);
+  },
+  blip(freq, dur, type, vol){
+    if (!this.ready || !this.on) return;
+    const t = this.ac.currentTime;
+    const o = this.ac.createOscillator();
+    const g = this.ac.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + dur + 0.02);
+  },
+  pass(combo, perfect){
+    const step = Math.min(combo - 1, 9);
+    const f = 523.25 * Math.pow(2, step / 12);
+    this.blip(f, 0.30, 'sine', 0.24);
+    this.blip(f * 1.5, 0.22, 'triangle', 0.09);
+    if (combo >= 3) this.blip(f * 3, 0.16, 'sine', 0.05);
+    if (perfect){                       // a brighter third on top
+      this.blip(f * 2, 0.26, 'triangle', 0.10);
+      this.blip(f * 2.5, 0.20, 'sine', 0.07);
+    }
+  },
+  bump(v){ this.blip(150 + v*40, 0.09, 'sine', Math.min(0.12, 0.02 + v*0.05)); },
+
+  // Calm Air: a soft rising chime, gentler than the coin blip
+  calm(){
+    if (!this.ready || !this.on) return;
+    const t = this.ac.currentTime;
+    const notes = [523.25, 659.25, 783.99];
+    notes.forEach((f, i) => {
+      const o = this.ac.createOscillator(), g = this.ac.createGain();
+      o.type = 'sine';
+      const w = t + i * 0.075;
+      o.frequency.setValueAtTime(f, w);
+      g.gain.setValueAtTime(0.0001, w);
+      g.gain.linearRampToValueAtTime(0.13, w + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, w + 0.55);
+      o.connect(g).connect(this.master);
+      o.start(w); o.stop(w + 0.6);
+    });
+  },
+
+  // Coin: two quick bright notes. Consecutive pickups climb in pitch so a
+  // trail plays as a rising phrase; the chain resets after a short pause.
+  coinChain: 0,
+  coinLast: -99,
+  coin(){
+    if (!this.ready || !this.on) return;
+    const t = this.ac.currentTime;
+    if (t - this.coinLast > 0.9) this.coinChain = 0;
+    else this.coinChain = Math.min(this.coinChain + 1, 8);
+    this.coinLast = t;
+
+    const f = 1046.5 * Math.pow(2, this.coinChain / 12);
+    const note = (freq, when, dur, vol) => {
+      const o = this.ac.createOscillator(), g = this.ac.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(freq, when);
+      g.gain.setValueAtTime(0.0001, when);
+      g.gain.linearRampToValueAtTime(vol, when + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+      o.connect(g).connect(this.master);
+      o.start(when); o.stop(when + dur + 0.02);
+    };
+    note(f,        t,         0.075, 0.15);
+    note(f * 1.5,  t + 0.052, 0.130, 0.13);   // a fifth up, classic pickup shape
+  },
+  dead(){
+    if (!this.ready || !this.on) return;
+    const t = this.ac.currentTime;
+    const o = this.ac.createOscillator(), g = this.ac.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(400, t);
+    o.frequency.exponentialRampToValueAtTime(90, t + 0.55);
+    g.gain.setValueAtTime(0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + 0.62);
+  }
+};
+
+// ===================================================================
+//  STATE
+// ===================================================================
+let state = 'ready';                       // ready | play | over
+// ang = orientation of the shaft, angVel = angular velocity (real rotational state)
+const obj = { x:0, y:0, vx:0, vy:0, r:20, ang:0, angVel:0, py:0, bend:0 };
+const cam  = { y:0, top:0 };
+const air  = { down:false, px:0, py:0, baseX:0, tilt:0, tiltRaw:0, pressure:0 };
+
+let hoops = [], parts = [], pops = [], coins = [];
+let score = 0, combo = 0, best = 0, spawnY = 0, hoopId = 0, tSec = 0;
+
+try { best = parseInt(localStorage.getItem('airlift_best') || '0', 10) || 0; } catch(e){}
+
+// ===================================================================
+//  CURRENCY
+//  ------------------------------------------------------------------
+//  runCoins   = collected during the current run (resets every run)
+//  totalCoins = permanent wallet (persisted, never reset by a run)
+//  All storage access goes through these three functions so the future
+//  shop can just do:  if (totalCoins >= price) { spendCoins(price); ... }
+// ===================================================================
+const COIN_KEY = 'airlift_coins';
+let runCoins = 0, totalCoins = 0;
+
+function loadCoins(){
+  try { totalCoins = parseInt(localStorage.getItem(COIN_KEY) || '0', 10) || 0; }
+  catch(e){ totalCoins = 0; }
+  return totalCoins;
+}
+function saveCoins(){
+  try { localStorage.setItem(COIN_KEY, String(totalCoins)); } catch(e){}
+}
+function addCoin(n){
+  n = n || 1;
+  runCoins   += n;
+  totalCoins += n;
+  saveCoins();
+  updateCoinHUD(true);
+}
+function spendCoins(n){
+  if (totalCoins < n) return false;
+  totalCoins -= n;
+  saveCoins();
+  updateCoinHUD(false);
+  return true;
+}
+
+// ===================================================================
+//  OBJECT OWNERSHIP
+//  Feather is always owned. Anything unreadable falls back to feather.
+// ===================================================================
+const UNLOCK_KEY = 'airlift_unlocked_objects';
+const SELECT_KEY = 'airlift_selected_object';
+let unlocked = ['feather'];
+
+function loadObjects(){
+  unlocked = ['feather'];
+  try {
+    const raw = JSON.parse(localStorage.getItem(UNLOCK_KEY) || '[]');
+    if (Array.isArray(raw)){
+      for (const k of raw) if (PROFILES[k] && unlocked.indexOf(k) < 0) unlocked.push(k);
+    }
+  } catch(e){ /* corrupt save -> feather only */ }
+
+  let sel = 'feather';
+  try { sel = localStorage.getItem(SELECT_KEY) || 'feather'; } catch(e){}
+  if (!PROFILES[sel] || unlocked.indexOf(sel) < 0) sel = 'feather';
+  OBJ = PROFILES[sel];
+}
+function saveObjects(){
+  try {
+    localStorage.setItem(UNLOCK_KEY, JSON.stringify(unlocked));
+    localStorage.setItem(SELECT_KEY, OBJ === PROFILES.feather ? 'feather' : keyOf(OBJ));
+  } catch(e){}
+}
+function keyOf(prof){
+  for (const k of OBJECT_ORDER) if (PROFILES[k] === prof) return k;
+  return 'feather';
+}
+function isUnlocked(key){ return unlocked.indexOf(key) >= 0; }
+
+// Buys an object once. Selecting it later never charges again.
+function unlockObject(key){
+  const prof = PROFILES[key];
+  if (!prof || isUnlocked(key)) return false;
+  if (!spendCoins(prof.price)) return false;
+  unlocked.push(key);
+  saveObjects();
+  return true;
+}
+
+function selectObject(key){
+  if (!PROFILES[key] || !isUnlocked(key)) return false;
+  OBJ = PROFILES[key];
+  applyProfile();
+  saveObjects();
+  updateObjectText();
+  return true;
+}
+
+// start screen / game over copy follows the selected object
+function updateObjectText(){
+  const names={feather:'Ay Tüyü',football:'Futbol Topu',pingpong:'Masa Tenisi Topu',balloon:'Mercan Balon',plane:'Kâğıt Uçak',rocket:'Oyuncak Roket'};
+  for(const k of Object.keys(PROFILES)) PROFILES[k].label=names[k];
+  const el = document.getElementById('startLine');
+  const noun = OBJ.noun || OBJ.label.toLowerCase();
+  if (el) el.textContent = OBJ.label + ' ile halkaların içinden geç.';
+  const fl = document.getElementById('ovFell');
+  if (fl) fl.textContent = OBJ.label + ' hava akımından uzaklaştı.';
+}
+
+const uiScore  = document.getElementById('uiScore');
+const uiBest   = document.getElementById('uiBest');
+const coinPill = document.getElementById('coinPill');
+const coinVal  = document.getElementById('coinVal');
+
+function updateCoinHUD(bump){
+  coinVal.textContent = totalCoins;
+  const sc = document.getElementById('startCoinVal');
+  if (sc) sc.textContent = totalCoins;
+  if (bump){
+    coinPill.classList.remove('bump');
+    void coinPill.offsetWidth;              // restart the CSS animation
+    coinPill.classList.add('bump');
+  }
+}
+const comboTag = document.getElementById('comboTag');
+uiBest.textContent = best;
+loadCoins();
+updateCoinHUD(false);
+loadObjects();
+
+const rnd = (a,b) => a + Math.random()*(b-a);
+const clamp = (v,a,b) => v < a ? a : (v > b ? b : v);
+
+// -------------------------------------------------------------------
+//  Smooth value noise — the flutter driver.
+//  A plain sine would make the feather loop visibly; this is a random
+//  table read at three incommensurate rates, so it never repeats in a
+//  way the eye can lock onto, and it stays cheap (no trig per sample).
+// -------------------------------------------------------------------
+const NTAB = new Float32Array(256);
+for (let i = 0; i < 256; i++) NTAB[i] = Math.random() * 2 - 1;
+function noise1(x){
+  const i = Math.floor(x), f = x - i;
+  const a = NTAB[i & 255], b = NTAB[(i + 1) & 255];
+  const t = f * f * (3 - 2 * f);            // smoothstep
+  return a + (b - a) * t;
+}
+// layered: slow body + faster detail, different rates per channel
+function fnoise(x){ return noise1(x) * 0.62 + noise1(x * 2.37 + 41.3) * 0.28 + noise1(x * 5.11 + 97.7) * 0.10; }
+
+// gusts: short random shoves, so the drift is never metronomic
+const gust = { t:0, x:0, rot:0 };
+
+// ===================================================================
+//  BACKDROP — cached so no gradients are rebuilt per frame
+// ===================================================================
+// ===================================================================
+//  ATMOSPHERE
+//  Four stages the run blends through continuously with altitude. There
+//  are no thresholds and no switches: `skyStage` is a float and every
+//  colour is interpolated between the two neighbouring stages, so the
+//  player never sees a moment of change — only that the sky has become
+//  something else.
+// ===================================================================
+const SKY = [
+ {top:[5,16,33],mid:[15,46,63],bot:[43,85,89],cool:[145,234,213],warm:[244,204,158],haze:[43,91,91],hazeA:.5,star:1,wisp:.6,blobA:.13},
+ {top:[10,20,43],mid:[32,52,82],bot:[65,99,111],cool:[174,222,249],warm:[158,230,209],haze:[67,99,117],hazeA:.4,star:1,wisp:.7,blobA:.15},
+ {top:[32,24,55],mid:[92,64,96],bot:[186,128,119],cool:[238,211,224],warm:[255,212,168],haze:[148,96,105],hazeA:.4,star:.7,wisp:.6,blobA:.2},
+ {top:[4,14,30],mid:[12,39,63],bot:[40,84,94],cool:[180,250,230],warm:[222,232,209],haze:[42,87,98],hazeA:.4,star:1,wisp:.5,blobA:.12}
+];
+const SKY_PER_STAGE = 8;          // screens climbed per atmosphere stage
+
+let skyStage = 0;                  // 0..3 float
+const sky = {                      // resolved (blended) values for this frame
+  top:[0,0,0], mid:[0,0,0], bot:[0,0,0], cool:[0,0,0], warm:[0,0,0],
+  haze:[0,0,0], hazeA:0, star:0, wisp:0, blobA:1
+};
+
+const mix = (a, b, t) => [
+  Math.round(a[0] + (b[0] - a[0]) * t),
+  Math.round(a[1] + (b[1] - a[1]) * t),
+  Math.round(a[2] + (b[2] - a[2]) * t)
+];
+const rgb  = c => 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
+
+function updateSky(){
+  // altitude drives everything; cam.top is the highest point reached
+  const climbed = Math.max(0, -cam.top) / H;
+  skyStage = clamp(climbed / SKY_PER_STAGE, 0, SKY.length - 1);
+  const i = Math.min(Math.floor(skyStage), SKY.length - 2);
+  const t = skyStage - i;
+  const A = SKY[i], B = SKY[i + 1];
+  sky.top = mix(A.top, B.top, t);
+  sky.mid = mix(A.mid, B.mid, t);
+  sky.bot = mix(A.bot, B.bot, t);
+  sky.cool = mix(A.cool, B.cool, t);
+  sky.warm = mix(A.warm, B.warm, t);
+  sky.haze = mix(A.haze, B.haze, t);
+  sky.hazeA = A.hazeA + (B.hazeA - A.hazeA) * t;
+  sky.star  = A.star  + (B.star  - A.star)  * t;
+  sky.wisp  = A.wisp  + (B.wisp  - A.wisp)  * t;
+  sky.blobA = A.blobA + (B.blobA - A.blobA) * t;
+
+  // Rebuild the gradients only when the blend has actually moved a visible
+  // amount — roughly 200 steps over the whole run instead of 60 per second.
+  const key = Math.round(skyStage * 220);
+  if (key !== skyKey){
+    skyKey = key;
+    skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0.00, rgb(sky.top));
+    skyGrad.addColorStop(0.48, rgb(sky.mid));
+    skyGrad.addColorStop(1.00, rgb(sky.bot));
+    hazeGrad = ctx.createLinearGradient(0, H - 170 * S, 0, H);
+    hazeGrad.addColorStop(0, rgba(sky.haze, 0));
+    hazeGrad.addColorStop(1, rgba(sky.haze, sky.hazeA.toFixed(3)));
+  }
+}
+
+let skyGrad = null, hazeGrad = null, skyKey = -1, blobs = [], stars = [];
+function buildBackdrop(){
+  skyKey = -1;                     // force a rebuild at the new size
+  if (!blobs.length){
+    for (let i = 0; i < 12; i++){
+      blobs.push({
+        x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.10, 0.30),
+        d: rnd(0.12, 0.42),                     // parallax depth
+        warm: Math.random() < 0.5
+      });
+    }
+    for (let i = 0; i < 90; i++){
+      stars.push({ x: rnd(0, 1), y: rnd(0, 1), r: rnd(0.7, 1.9), d: rnd(0.04, 0.16),
+                   tw: rnd(0, 6.2832) });
+    }
+  }
+  updateSky();
+}
+
+// ===================================================================
+//  GAME FLOW
+// ===================================================================
+function reset(){
+  cam.y = 0; cam.top = 0;
+  obj.x = W * 0.5;  obj.y = H * 0.58;  obj.py = obj.y;
+  obj.vx = 0; obj.vy = -40 * S;
+  obj.r = P.objR;
+  obj.ang = 0.35; obj.angVel = 0; obj.bend = 0; obj.hx = P.objLen;
+  gust.t = 0; gust.x = 0; gust.rot = 0;
+  air.down = false; air.pressure = 0; air.tilt = 0; air.tiltRaw = 0;
+  air.baseX = W * 0.5; air.px = W * 0.5; air.py = H * 0.8;
+  hoops = []; parts = []; pops = []; coins = []; orbs = [];
+  score = 0; combo = 0; hoopId = 0; tSec = 0;
+  runCoins = 0; lastCoinY = 0;
+  calm.t = 0; gatesToOrb = Math.round(rnd(CALM.every[0], CALM.every[1]));
+  skyStage = 0; lastPal = ''; updateSky();
+  spawnY = obj.y - H * 0.42;
+  while (spawnY > cam.y - H * 1.1) addHoop();
+  uiScore.textContent = '0';
+  showCombo(false);
+}
+
+// The pass opening is unchanged; rings just gain an occasional slow drift.
+function addHoop(){
+  const diff = Math.min(hoopId / 30, 1);                 // very gentle ramp
+  const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff));   // ~15% smaller than before
+  const prev = hoops.length ? hoops[hoops.length - 1].x : W * 0.5;
+  const drift = W * P.hoopDrift;
+  // ~18% of gates drift. Reserve the swing room BEFORE clamping, so a gate
+  // near a wall still gets a real amplitude instead of being flattened to 0.
+  let amp = 0;
+  const edge = rx + 14 * S;
+  if (Math.random() < 0.18) amp = Math.min(W * 0.085, Math.max(0, (W - edge * 2) * 0.5 - 4 * S));
+  const x = clamp(prev + rnd(-drift, drift), edge + amp, W - edge - amp);
+
+  hoops.push({
+    id: hoopId++, x, homeX: x, y: spawnY, rx, ry: rx * 0.30,
+    done: false, missed: false, pulse: 0, glow: 0,
+    seed: Math.random() * 6.2832, pal: pickRingPal(),
+    amp, driftSpd: rnd(0.22, 0.40), flash: 0
+  });
+  if (hoops.length >= 2) maybeSpawnCoins(hoops[hoops.length - 2], hoops[hoops.length - 1], diff);
+  maybeSpawnOrb(hoops[hoops.length - 1]);
+  spawnY -= rnd(P.gapMin, P.gapMax) * (1 + 0.16 * diff);
+}
+
+function startGame(){
+  Snd.init(); Snd.resume();
+  Snd.coinChain = 0;
+  updateObjectText();
+  reset();
+  state = 'play';
+  document.getElementById('pauseBtn').style.display='block';
+  document.getElementById('flightHint').style.opacity=1;
+  Snd.blip(392,.5,'sine',.10); Snd.blip(587.33,.6,'sine',.06);
+  acc = 0; last = performance.now();
+  document.getElementById('startScreen').classList.remove('on');
+  document.getElementById('overScreen').classList.remove('on');
+}
+
+function gameOver(){
+  state = 'over';
+  air.down = false;
+  air.pressure = 0;
+  haptic([25,50,40]);
+  document.getElementById('pauseBtn').style.display='none';
+  document.getElementById('flightHint').style.opacity=0;
+  Snd.dead();
+  Snd.wind(0, 0);
+  if (score > best){
+    best = score;
+    try { localStorage.setItem('airlift_best', String(best)); } catch(e){}
+  }
+  uiBest.textContent = best;
+  document.getElementById('ovScore').textContent = score;
+  document.getElementById('ovBest').textContent  = best;
+  document.getElementById('ovCoins').textContent = '+' + runCoins;
+  document.getElementById('ovCoinTotal').textContent = totalCoins;
+  document.getElementById('overScreen').classList.add('on');
+  showCombo(false);
+}
+
+let comboTimer = 0;
+function showCombo(on, n){
+  if (on){ comboTag.textContent = 'COMBO x' + n; comboTag.classList.add('on'); comboTimer = 1.4; }
+  else   { comboTag.classList.remove('on'); comboTimer = 0; }
+}
+
+// ===================================================================
+//  OBJECT SHOP
+//  Cards are built once; only their state is refreshed after that.
+//  Previews call the same paintShape() the game uses, so a card can
+//  never drift out of sync with what actually flies.
+// ===================================================================
+let shopBuilt = false;
+
+function buildShop(){
+  const grid = document.getElementById('objGrid');
+  grid.innerHTML = '';
+  for (const key of OBJECT_ORDER){
+    const prof = PROFILES[key];
+    const card = document.createElement('div');
+    card.className = 'objCard';
+    card.dataset.key = key;
+
+    const cvs = document.createElement('canvas');
+    const px = 62, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cvs.width = px * dpr; cvs.height = px * dpr;
+    const c2 = cvs.getContext('2d');
+    c2.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // fit the object's longest axis into the tile
+    const span = Math.max(prof.len, prof.wid);
+    const k = (px * 0.36) / span;
+    c2.translate(px / 2, px / 2);
+    c2.rotate(prof.art === 'balloon' ? 0 : -0.45);
+    paintShape(c2, prof, prof.len * k, prof.wid * k, Math.max(k * 1.6, 0.55), 0);
+    card.appendChild(cvs);
+
+    const name = document.createElement('div');
+    name.className = 'objName';
+    name.textContent = prof.label;
+    card.appendChild(name);
+
+    const btn = document.createElement('button');
+    btn.className = 'objBtn';
+    btn.addEventListener('click', () => onShopClick(key, btn));
+    card.appendChild(btn);
+
+    grid.appendChild(card);
+  }
+  shopBuilt = true;
+}
+
+function refreshShop(){
+  document.getElementById('shopCoinVal').textContent = totalCoins;
+  const cur = keyOf(OBJ);
+  const cards = document.querySelectorAll('#objGrid .objCard');
+  for (const card of cards){
+    const key = card.dataset.key, prof = PROFILES[key];
+    const btn = card.querySelector('.objBtn');
+    const owned = isUnlocked(key);
+    card.classList.toggle('sel', key === cur);
+    card.classList.toggle('locked', !owned);
+    btn.classList.remove('own', 'cur', 'poor');
+    if (key === cur){          btn.textContent = 'SEÇİLİ';   btn.classList.add('cur'); }
+    else if (owned){           btn.textContent = 'SEÇ';     btn.classList.add('own'); }
+    else {
+      btn.innerHTML = '<span class="px"><span class="coinIcon"></span>' + prof.price + '</span>';
+      if (totalCoins < prof.price) btn.classList.add('poor');
+    }
+  }
+}
+
+let shopMsgTimer = 0;
+function onShopClick(key, btn){
+  Snd.init(); Snd.resume();
+  if (isUnlocked(key)){
+    if (keyOf(OBJ) !== key){ selectObject(key); Snd.blip(660, 0.10, 'sine', 0.14); }
+    refreshShop();
+    return;
+  }
+  if (unlockObject(key)){
+    selectObject(key);
+    Snd.pass(3);                       // small purchase flourish
+    refreshShop();
+    updateCoinHUD(true);
+  } else {
+    btn.classList.remove('shake');
+    void btn.offsetWidth;
+    btn.classList.add('shake');
+    const msg = document.getElementById('shopMsg');
+    msg.classList.add('on');
+    clearTimeout(shopMsgTimer);
+    shopMsgTimer = setTimeout(() => msg.classList.remove('on'), 1400);
+    Snd.blip(180, 0.12, 'sine', 0.10);
+  }
+}
+
+// The shop is reachable from both the start screen and the run-over screen,
+// so it remembers where it was opened from and returns there on close.
+let shopReturn = 'startScreen';
+
+function openShop(from){
+  shopReturn = from || 'startScreen';
+  if (!shopBuilt) buildShop();
+  refreshShop();
+  document.getElementById('shopMsg').classList.remove('on');
+  document.getElementById(shopReturn).classList.remove('on');
+  document.getElementById('shopScreen').classList.add('on');
+}
+function closeShop(){
+  document.getElementById('shopScreen').classList.remove('on');
+  document.getElementById(shopReturn).classList.add('on');
+  updateCoinHUD(false);
+}
+
+// ===================================================================
+//  INPUT — pointer events, works with mouse and touch
+// ===================================================================
+let activePointer=null;
+let tapped = false;                        // haptics need a real user gesture
+function ptDown(e){
+  tapped = true;
+  if(activePointer!==null)return;
+  if (state !== 'play') return;
+  activePointer=e.pointerId;             // start/restart go through the buttons
+  Snd.init(); Snd.resume();
+  document.getElementById('flightHint').style.opacity=0;
+  air.down = true;
+  air.px = e.clientX; air.py = e.clientY;
+  if (cv.setPointerCapture && e.pointerId != null){
+    try { cv.setPointerCapture(e.pointerId); } catch(err){}
+  }
+  e.preventDefault();
+}
+function ptMove(e){ if (air.down && e.pointerId===activePointer){ air.px = e.clientX; air.py = e.clientY; } }
+function ptUp(e){if(e && e.pointerId!=null && e.pointerId!==activePointer)return;air.down=false;activePointer=null;}
+
+cv.addEventListener('pointerdown', ptDown);
+cv.addEventListener('pointermove', ptMove, { passive:true });
+window.addEventListener('pointerup', ptUp);
+window.addEventListener('pointercancel', ptUp);
+window.addEventListener('blur', ptUp);
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('objBtn').addEventListener('click', () => openShop('startScreen'));
+document.getElementById('objBtnOver').addEventListener('click', () => openShop('overScreen'));
+document.getElementById('shopClose').addEventListener('click', closeShop);
+document.getElementById('againBtn').addEventListener('click', startGame);
+document.getElementById('sndBtn').addEventListener('click', function(){
+  Snd.init();
+  Snd.on = !Snd.on;
+  Snd.resume();
+  this.textContent = Snd.on ? 'SES AÇIK' : 'SES YOK';
+  this.setAttribute('aria-pressed',String(Snd.on));
+  try{localStorage.setItem('airlift_sound',String(Snd.on))}catch(e){}
+  if (!Snd.on) Snd.wind(0, 0);
+});
+
+// ===================================================================
+//  JET FIELD
+//    One function samples the airflow anywhere in the world.
+//    Both the feather and the visible air particles read it, so what you
+//    see is literally the field that is pushing the obj.
+// ===================================================================
+const jet = { ox:0, oy:0, dx:0, dy:-1, res:{ core:0, lat:0, cr:1, fall:0, t:99, along:0 } };
+
+function updateJet(dt){
+  // The blower slides toward the finger, but with lag and a speed limit.
+  // That lag IS the steering angle — which means steering self-centres:
+  // hold still and the beam straightens out under you.
+  const targetX = clamp(air.px, 26 * S, W - 26 * S);
+  if (air.down){
+    let dx = (targetX - air.baseX) * (1 - Math.exp(-dt * P.baseFollow));
+    const maxStep = P.baseSpeed * dt;
+    air.baseX += clamp(dx, -maxStep, maxStep);
+  }
+
+  air.tiltRaw = air.down ? clamp((air.px - air.baseX) / P.tiltRef, -1, 1) * P.tiltMax : 0;
+  air.tilt += (air.tiltRaw - air.tilt) * (1 - Math.exp(-dt * 11));
+
+  // pressure: quick attack, quicker fade-out (never an instant cut)
+  if (air.down) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
+  else          air.pressure *= Math.exp(-dt * P.release);
+  if (air.pressure < 0.0005) air.pressure = 0;
+
+  // Calm Air widens the usable stream. Everything that samples the jet
+  // reads coneNow/spreadNow, so the visuals and the forces stay in step.
+  const cw = 1 + CALM.wider * calmF();
+  P.coneNow   = P.coneBase * cw;
+  P.spreadNow = P.spread   * cw;
+
+  jet.ox = air.baseX;
+  jet.oy = cam.y + H - P.nozzleY;
+  jet.dx = Math.sin(air.tilt);
+  jet.dy = -Math.cos(air.tilt);
+}
+
+// sample the jet at a world point -> res.core is the 0..1 strength
+function sampleJet(x, y){
+  const r = jet.res;
+  r.core = 0; r.fall = 0; r.t = 99;
+  const rx = x - jet.ox, ry = y - jet.oy;
+  const along = rx * jet.dx + ry * jet.dy;
+  if (along > P.range || along < -40 * S) return r;
+  const a = Math.max(along, 0);
+  const lat = rx * (-jet.dy) + ry * jet.dx;     // signed distance from the axis
+  const cr  = P.coneNow + a * P.spreadNow;
+  const t   = lat / cr;
+  if (t > 2.0 || t < -2.0) return r;
+  r.lat = lat; r.cr = cr; r.t = t; r.along = a;
+  r.fall = Math.pow(1 - a / P.range, P.falloffPow);
+  r.core = Math.max(0, 1 - t * t) * r.fall;
+  return r;
+}
+
+// ===================================================================
+//  PHYSICS STEP — fixed 1/120 s
+// ===================================================================
+function physics(dt){
+  tSec += dt;
+  updateJet(dt);
+
+  obj.py = obj.y;
+  const o = OBJ;
+
+  // Orientation frame: 'a' runs along the shaft, 'n' is the flat of the vane.
+  const ca = Math.cos(obj.ang), sa = Math.sin(obj.ang);
+  const ax = ca, ay = sa;
+  const nx = -sa, ny = ca;
+
+  // --- local air velocity, straight from the visible jet field ---------
+  // The feather is carried by the air rather than merely pushed by it, so
+  // what you see in the stream is what moves it.
+  let airVX = 0, airVY = 0, core = 0, tAxis = 99, fall = 0;
+  if (air.pressure > 0.004){
+    const r = sampleJet(obj.x, obj.y);
+    core = r.core; tAxis = r.t; fall = r.fall;
+    if (core > 0){
+      const spAir = P.airSpeed * air.pressure * core;
+      airVX = jet.dx * spAir;
+      airVY = jet.dy * spAir;
+    }
+  }
+  const inStream = air.pressure * core;          // 0..1, "how much air is on it"
+
+  // --- gravity ---------------------------------------------------------
+  obj.vy += P.g * dt;
+
+  // Every aerodynamic force below is divided by mass; gravity above is not.
+  // The feather is mass 1.0, so its numbers come through untouched.
+  const im = P.imass;
+
+  // Calm Air: temporary multipliers on the shared system. Personality is
+  // scaled, never replaced — a feather still flutters, just less.
+  const cf    = calmF();
+  const mLift = 1 + CALM.lift * cf;
+  const mCent = 1 + CALM.centering * cf;
+  const mCalm = 1 - CALM.calmer * cf;
+
+  // --- direct jet push (small for a feather; the air carries it instead)
+  if (core > 0){
+    const F = P.jetF * mLift * air.pressure * core * im;
+    obj.vx += F * jet.dx * P.hPush * P.hMul * dt;
+    obj.vy += F * jet.dy * dt;
+    obj.vx += fnoise(tSec * 3.1 + 5.5) * P.turb * mCalm * inStream * im * dt;
+  }
+
+  // --- entrainment: the stream pulls it back toward its axis ------------
+  if (air.pressure > 0.004 && tAxis < 2.0 && fall > 0){
+    const px = -jet.dy, py = jet.dx;
+    const pull = -Math.sign(tAxis) * Math.min(Math.abs(tAxis), 1) *
+                 P.center * mCent * air.pressure * fall * im;
+    obj.vx += pull * px * dt;
+    obj.vy += pull * py * dt;
+  }
+
+  // =====================================================================
+  //  ANISOTROPIC AERODYNAMIC DRAG  — the core of every object's feel.
+  //  Drag across the face is full strength; drag along the object's own
+  //  axis is scaled by dragEdge. Set dragEdge to 1.0 and the object is a
+  //  sphere; set it to 0.18 and you get a feather; 0.10 gives a dart.
+  //  Consequences, all emergent:
+  //    * broadside  -> huge drag -> drifts down slowly
+  //    * edge-on    -> slips     -> drops quickly until it catches again
+  //    * in the jet -> it accelerates toward the air's own velocity
+  // =====================================================================
+  const wx = airVX - obj.vx, wy = airVY - obj.vy;   // wind as the object feels it
+  const wsp = Math.hypot(wx, wy);
+  let torque = 0;
+
+  if (wsp > 0.001){
+    const wn = wx * nx + wy * ny;                   // hits the flat face
+    const wt = wx * ax + wy * ay;                   // slides along the axis
+    const kN = P.dragLin + P.dragQuad * Math.abs(wn);
+    const kT = (P.dragLin + P.dragQuad * Math.abs(wt)) * P.dragEdge;
+    const fN = wn * kN * im, fT = wt * kT * im;
+    obj.vx += (fN * nx + fT * ax) * dt;
+    obj.vy += (fN * ny + fT * ay) * dt;
+
+    // Aerodynamic torque: swings the face across the wind, overshoots,
+    // then corrects — a damped oscillation, never a constant spin.
+    // Strong airflow => large wsp => strong alignment (stable).
+    // No airflow    => small wsp => flutter noise takes over (unstable).
+    if (o.angResp) torque += -o.angResp * wt * wn / wsp;
+  }
+
+  // --- weathervane: nose into the direction of travel -------------------
+  // Rocket and plane point where they are going. Below a crawl there is no
+  // meaningful direction of travel, so they line up with the stream instead.
+  if (P.vane){
+    const sp0 = Math.hypot(obj.vx, obj.vy);
+    let tx, ty;
+    if (sp0 > 40 * S){ tx = obj.vx / sp0; ty = obj.vy / sp0; }
+    else { tx = jet.dx; ty = jet.dy; }
+    torque += P.vane * (ax * ty - ay * tx);          // cross(axis, target)
+  }
+  // the airstream itself pitches the plane over
+  if (P.jetPitch && inStream > 0.01){
+    torque += P.jetPitch * inStream * (ax * jet.dy - ay * jet.dx);
+  }
+
+  // --- glide: angle of attack turns speed into lift, and stalls ---------
+  if (P.glide){
+    const sp0 = Math.hypot(obj.vx, obj.vy);
+    if (sp0 > 30 * S){
+      const vhx = obj.vx / sp0, vhy = obj.vy / sp0;
+      const aoa = Math.atan2(vhx * ay - vhy * ax, vhx * ax + vhy * ay);
+      // sin(2*aoa) peaks near 45 deg and collapses past it — that is the stall
+      const L = P.glide * sp0 * sp0 * Math.sin(2 * aoa) * im;
+      obj.vx += -vhy * L * dt;                       // lift acts across the path
+      obj.vy +=  vhx * L * dt;
+    }
+  }
+
+  // --- balloons hang the right way up ----------------------------------
+  if (P.upright) torque += -P.upright * Math.sin(obj.ang);
+
+  // --- gliders stay near level -----------------------------------------
+  // sin(2a) is zero at 0 and PI (flat, nosing either way) and pushes away
+  // from vertical. Balanced against `vane` this gives a shallow nose-down
+  // attitude while descending — which is what makes it glide, since the
+  // anisotropic drag then slides it forward instead of dropping it.
+  if (P.level) torque += -P.level * Math.sin(2 * obj.ang);
+
+  // --- flutter --------------------------------------------------------
+  // Gain is state-driven, not a fixed animation: strongest when drifting
+  // slowly in calm air, weakest when pinned in the middle of the stream.
+  const sp = Math.hypot(obj.vx, obj.vy);
+  const calm  = 1 - 0.75 * inStream;                       // airflow strength
+  const slow  = 1 - 0.60 * Math.min(sp / (480 * S), 1);    // vertical+lateral speed
+  const broad = wsp > 1 ? Math.abs(wx * nx + wy * ny) / wsp : 1;   // current angle
+  const edgeOfStream = inStream > 0.02 ? 0.55 + 0.45 * Math.min(Math.abs(tAxis), 1.4) / 1.4 : 1;
+  const fg = clamp(calm * slow * (0.45 + 0.55 * broad) * edgeOfStream, 0, 1);
+
+  // occasional gusts so the drift never settles into a rhythm
+  if (Math.random() < o.gustChance * dt){
+    gust.x   = (Math.random() * 2 - 1) * o.gustPower;
+    gust.rot = (Math.random() * 2 - 1) * o.gustPower;
+  }
+  gust.x   *= Math.exp(-dt * 2.2);
+  gust.rot *= Math.exp(-dt * 2.6);
+
+  if (P.flutter){
+    const fSide = (fnoise(tSec * o.flutterFreq + 13.7) + gust.x) * P.flutter * fg * mCalm * im;
+    obj.vx += fSide * dt;
+    obj.vy += fnoise(tSec * o.flutterFreq * 1.31 + 61.2) * P.flutter * 0.30 * fg * mCalm * im * dt;
+  }
+  if (o.angFlutter) torque += (fnoise(tSec * o.flutterFreq * 1.7 + 88.4) + gust.rot) * o.angFlutter * fg * mCalm;
+  if (o.angFromVx)  torque += -obj.vx * o.angFromVx;   // horizontal motion tips it over
+
+  // --- integrate rotation ---------------------------------------------
+  if (P.spinRoll){
+    // balls roll instead of weathervaning: spin tracks horizontal travel
+    const target = obj.vx * P.spinRoll;
+    obj.angVel += (target - obj.angVel) * (1 - Math.exp(-dt * 4));
+    obj.angVel = clamp(obj.angVel, -o.angMax, o.angMax);
+  } else {
+    const angDrag = o.angDrag + o.alignAir * inStream;   // strong air steadies it
+    obj.angVel += torque * dt;
+    obj.angVel -= obj.angVel * Math.min(angDrag * dt, 0.9);
+    obj.angVel = clamp(obj.angVel, -o.angMax, o.angMax);
+  }
+  obj.ang += obj.angVel * dt;
+  if (obj.ang >  Math.PI) obj.ang -= Math.PI * 2;
+  if (obj.ang < -Math.PI) obj.ang += Math.PI * 2;
+
+  // visual flex of the vane, driven by real angular motion
+  obj.bend += (clamp(obj.angVel * 0.16, -1, 1) - obj.bend) * (1 - Math.exp(-dt * 8));
+
+  // --- integrate position ---------------------------------------------
+  obj.x += obj.vx * dt;
+  obj.y += obj.vy * dt;
+
+  // --- walls -----------------------------------------------------------
+  // Half-width actually swept by the object at its current angle. Also
+  // reused by the hoop test, so a football needs a wider gap than a dart.
+  const hx = Math.abs(ca) * P.objLen + Math.abs(sa) * P.objWid;
+  obj.hx = hx;
+  if (obj.x < hx){
+    obj.x = hx;
+    if (obj.vx < 0) wallBrush(-obj.vx, 1);
+  } else if (obj.x > W - hx){
+    obj.x = W - hx;
+    if (obj.vx > 0) wallBrush(obj.vx, -1);
+  }
+
+  // --- camera: rises easily, sinks slowly, never drops far
+  const target = obj.y - H * 0.56;
+  const rate = target < cam.y ? P.camUp : P.camDown;
+  cam.y += (target - cam.y) * (1 - Math.exp(-dt * rate));
+  if (cam.y < cam.top) cam.top = cam.y;
+  if (cam.y > cam.top + P.camSlack) cam.y = cam.top + P.camSlack;
+
+  if (calm.t > 0) calm.t -= dt;
+  hoopLogic();
+  coinLogic();
+  orbLogic();
+  emitAir(dt);
+
+  // --- fell out of the play area
+  if (obj.y - cam.y > H + obj.r * 2) gameOver();
+}
+
+// A feather does not bounce. It brushes the wall, loses nearly all of its
+// sideways speed, gets nudged into a rotation and keeps floating.
+// Wall contact for every object. wallDamp is the fraction of horizontal
+// speed kept and re-aimed away from the wall: 0.14 is a feather brushing
+// past, 0.82 is a ping-pong ball pinging off it.
+function wallBrush(v, dir){
+  const o = OBJ;
+  obj.vx = dir * v * o.wallDamp;
+  obj.vy *= o.wallSlide;
+  obj.angVel += dir * o.wallSpin * Math.min(v / (400 * S), 1);
+  obj.angVel = clamp(obj.angVel, -o.angMax, o.angMax);
+  if (v > 150 * S){
+    Snd.bump(v / (420 * S));
+    burst(obj.x, obj.y, 4, 'white', 0.35);
+  }
+}
+
+// ===================================================================
+//  HOOPS
+// ===================================================================
+function hoopLogic(){
+  for (let i = 0; i < hoops.length; i++){
+    const h = hoops[i];
+
+    // pass: crossed the ring plane while moving upward
+    if (!h.done && obj.vy < 0 && obj.py > h.y && obj.y <= h.y){
+      const off = Math.abs(obj.x - h.x);
+      if (off < h.rx * 1.00 - obj.hx * 0.30){
+        h.done = true;
+        h.pulse = 1;
+        onPass(h, off / h.rx);
+      }
+    }
+    // miss: climbed past the ring without going through it
+    if (!h.done && !h.missed && obj.y < h.y - 30 * S){
+      h.missed = true;
+      if (combo > 0){ combo = 0; showCombo(false); }
+    }
+    if (h.amp) h.x = h.homeX + Math.sin(tSec * h.driftSpd + h.seed) * h.amp;
+    h.pulse *= 0.90;
+    h.flash *= 0.90;
+    const near = 1 - Math.min(Math.abs(obj.y - h.y) / (H * 0.35), 1);
+    h.glow += ((h.done ? 0 : near) - h.glow) * 0.12;
+  }
+
+  while (hoops.length && hoops[0].y > cam.y + H + 240 * S) hoops.shift();
+  while (spawnY > cam.y - H * 1.1) addHoop();
+}
+
+function onPass(h, offRatio){
+  combo++;
+  const bonus = Math.min(combo, 10);
+  const centred = offRatio < 0.28;
+  const pts = 10 + (bonus - 1) * 5 + (centred ? 5 : 0);
+  score += pts;
+  uiScore.textContent = score;
+  Snd.pass(combo, centred);
+  haptic(centred ? [12,35,20] : 10);
+  h.flash = centred ? 1 : 0.42;                  // ring glows, brighter if perfect
+  burst(h.x, h.y, centred ? 48 : 28, centred ? 'perfect' : 'blue', centred ? 1.25 : 1);
+  if (centred){
+    pops.push({ x:h.x, y:h.y, t:0, txt:'KUSURSUZ', big:true, perfect:true });
+    pops.push({ x:h.x, y:h.y + 26 * S, t:-0.10, txt:'+' + pts, big:false });
+  } else {
+    pops.push({ x:h.x, y:h.y, t:0, txt:'+' + pts, big:false });
+  }
+  if (combo >= 2) showCombo(true, combo);
+}
+
+// ===================================================================
+//  COINS
+//  ------------------------------------------------------------------
+//  World-space collectibles. Spawned per hoop gap, never at every hoop.
+//  They are a side reward: the route through the rings stays the main
+//  line, coins sit slightly off it so taking them is a small decision.
+// ===================================================================
+const COIN = {
+  r          : 11,     // drawn radius (px @ 720p ref)
+  grab       : 1.7,    // forgiveness multiplier across the feather's width
+  chance     : 0.55,   // fraction of hoop gaps that get a group at all
+  minGapY    : 0.62,   // min vertical spacing between groups (x screen height)
+  stepY      : 34,     // spacing inside a trail
+  maxOffset  : 0.20,   // max lateral offset from the route (x screen width)
+  edgePad    : 30      // keep clear of the walls
+};
+let lastCoinY = 0;
+
+function pushCoin(x, y){
+  const pad = (COIN.edgePad + COIN.r) * S;
+  coins.push({
+    x: clamp(x, pad, W - pad), y,
+    collected: false,
+    phase: Math.random() * 6.2832,     // idle spin/float offset
+    anim: 0                            // pickup animation clock
+  });
+}
+
+// Places a small group somewhere in the gap between two hoops.
+function maybeSpawnCoins(prev, next, diff){
+  if (Math.random() > COIN.chance) return;
+  const gap = prev.y - next.y;                      // next is above prev
+  if (gap < H * 0.20) return;
+  if (lastCoinY - next.y < H * COIN.minGapY && lastCoinY !== 0) return;
+
+  // the natural flight line between the two rings
+  const yMid = next.y + gap * 0.5;
+  const at = (y) => {
+    const t = clamp((prev.y - y) / gap, 0, 1);
+    return prev.x + (next.x - prev.x) * t;
+  };
+
+  const step = COIN.stepY * S;
+  const off  = W * COIN.maxOffset;
+  // harder patterns only appear once the player is established; the COUNT
+  // stays small either way — higher up means more interesting, not more coins
+  const pool = diff > 0.35 ? ['single','vline','diag','arc','offside']
+                           : ['single','vline','diag'];
+  const kind = pool[(Math.random() * pool.length) | 0];
+  const side = Math.random() < 0.5 ? -1 : 1;
+
+  if (kind === 'single'){
+    pushCoin(at(yMid) + side * off * rnd(0.15, 0.5), yMid);
+
+  } else if (kind === 'vline'){
+    const n = 2 + ((Math.random() * 2) | 0);         // 2-3
+    const x = at(yMid) + side * off * rnd(0.1, 0.4);
+    for (let i = 0; i < n; i++) pushCoin(x, yMid - (i - (n - 1) / 2) * step);
+
+  } else if (kind === 'diag'){
+    const n = 3;
+    for (let i = 0; i < n; i++){
+      const y = yMid - (i - 1) * step;
+      pushCoin(at(y) + side * off * (i - 1) * 0.42, y);
+    }
+
+  } else if (kind === 'arc'){
+    const n = 3 + ((Math.random() * 2) | 0);         // 3-4
+    for (let i = 0; i < n; i++){
+      const t = i / (n - 1);
+      const y = yMid + (t - 0.5) * step * (n - 1);
+      pushCoin(at(y) + side * off * Math.sin(t * Math.PI) * 0.85, y);
+    }
+
+  } else {                                           // 'offside' — a tempting one
+    // deliberately off the easy route, but never against a wall and never
+    // so far that recovering is unrealistic
+    pushCoin(at(yMid) + side * off * rnd(0.75, 1.0), yMid);
+  }
+  lastCoinY = yMid;
+}
+
+function coinLogic(){
+  // forgiving hit test in the feather's own frame: an ellipse around the
+  // feather inflated by the coin radius, so any part of it collects.
+  const ca = Math.cos(obj.ang), sa = Math.sin(obj.ang);
+  const cr = COIN.r * S;
+  const ra = P.objLen * 0.90 + cr;
+  const rn = P.objWid * COIN.grab + cr;
+
+  for (let i = 0; i < coins.length; i++){
+    const c = coins[i];
+    if (c.collected) continue;
+    const dx = c.x - obj.x, dy = c.y - obj.y;
+    if (dx * dx + dy * dy > (ra + rn) * (ra + rn)) continue;   // cheap reject
+    const la = dx * ca + dy * sa;
+    const ln = -dx * sa + dy * ca;
+    if ((la * la) / (ra * ra) + (ln * ln) / (rn * rn) <= 1) collectCoin(c);
+  }
+
+}
+
+function collectCoin(c){
+  c.collected = true;
+  c.anim = 0.0001;                 // starts the 280ms pickup animation
+  addCoin(1);
+  Snd.coin();
+  burst(c.x, c.y, 6, 'gold', 0.7);
+  pops.push({ x:c.x, y:c.y, t:0, txt:'+1', big:false, gold:true });
+  haptic(6);
+}
+
+function stepCoins(dt){
+  // one backward sweep: animate, expire pickups, and recycle anything that
+  // has fallen far below the camera (order-independent, so patterns are free
+  // to emit their coins in any vertical order)
+  const cull = cam.y + H + 240 * S;
+  for (let i = coins.length - 1; i >= 0; i--){
+    const c = coins[i];
+    if (c.collected){
+      c.anim += dt;
+      if (c.anim > 0.30) coins.splice(i, 1);
+    } else if (c.y > cull){
+      coins.splice(i, 1);
+    } else {
+      c.phase += dt * 2.4;
+    }
+  }
+}
+
+function drawCoins(cy){
+  const cr = COIN.r * S;
+  for (let i = 0; i < coins.length; i++){
+    const c = coins[i];
+    const y = c.y - cy;
+    if (y < -60 * S || y > H + 60 * S) continue;
+
+    let sc = 1, alpha = 1, float = 0;
+    if (c.collected){
+      const a = c.anim / 0.30;
+      if (a < 0.30){ sc = 1 + 0.5 * (a / 0.30); }
+      else { const b = (a - 0.30) / 0.70; sc = 1.5 * (1 - b); alpha = 1 - b; }
+    } else {
+      float = Math.sin(c.phase * 0.8) * 2.6 * S;    // tiny vertical drift
+    }
+    if (sc <= 0.01) continue;
+
+    // simulated spin: the disc narrows and widens instead of a real 3D turn
+    const spin = c.collected ? 1 : (0.34 + 0.66 * Math.abs(Math.cos(c.phase)));
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(c.x, y + float);
+    ctx.scale(spin * sc, sc);
+
+    const g = ctx.createRadialGradient(-cr * 0.35, -cr * 0.38, cr * 0.12, 0, 0, cr);
+    g.addColorStop(0,    '#fff6bd');
+    g.addColorStop(0.42, '#ffd53f');
+    g.addColorStop(1,    '#e8961c');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, cr, 0, 6.2832); ctx.fill();
+
+    ctx.strokeStyle = 'rgba(184,116,14,.55)';
+    ctx.lineWidth = 1.7 * S;
+    ctx.stroke();
+
+    // inner rim + highlight
+    ctx.strokeStyle = 'rgba(255,255,255,.45)';
+    ctx.lineWidth = 1.4 * S;
+    ctx.beginPath(); ctx.arc(0, 0, cr * 0.60, 0, 6.2832); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.65)';
+    ctx.beginPath();
+    ctx.ellipse(-cr * 0.30, -cr * 0.34, cr * 0.26, cr * 0.17, -0.6, 0, 6.2832);
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+// ===================================================================
+//  CALM AIR
+//  A short, relaxing recovery power-up. It applies TEMPORARY MULTIPLIERS
+//  to the one shared physics system — there is no per-object code, so it
+//  works with every profile and never erases an object's personality.
+//    calm.t   seconds remaining
+//    calmF()  0..1 strength, eased out over the last FADE seconds so the
+//             jet width and physics never snap back
+// ===================================================================
+const CALM = {
+  dur      : 4.0,    // seconds of effect
+  fade     : 0.40,   // smooth ease-out at the end
+  every    : [8, 12],// spawn one roughly every 8-12 gates
+  r        : 15,     // orb radius (px @ 720p ref)
+  grab     : 1.9,    // extra forgiveness on pickup
+  wider    : 0.33,   // +33% jet cone width
+  centering: 0.45,   // +45% entrainment
+  calmer   : 0.65,   // -65% turbulence / flutter / random torque
+  lift     : 0.12,   // +12% lift, deliberately subtle
+  brake    : 0.40    // bleed 40% of a fast descent on pickup
+};
+const calm = { t: 0 };
+let orbs = [], gatesToOrb = 9;
+
+function calmF(){
+  if (calm.t <= 0) return 0;
+  return calm.t >= CALM.fade ? 1 : calm.t / CALM.fade;
+}
+
+// Spawned per gate, never two close together: the counter guarantees a
+// minimum gate spacing rather than relying on chance alone.
+function maybeSpawnOrb(gate){
+  if (--gatesToOrb > 0) return;
+  gatesToOrb = Math.round(rnd(CALM.every[0], CALM.every[1]));
+  const pad = (46 + CALM.r) * S;
+  // slightly off the gate centre so it is a small optional detour,
+  // but always well inside the walls and never behind decoration
+  const off = gate.rx * rnd(0.15, 0.55) * (Math.random() < 0.5 ? -1 : 1);
+  orbs.push({
+    x: clamp(gate.x + off, pad, W - pad),
+    y: gate.y - rnd(H * 0.10, H * 0.18),
+    phase: Math.random() * 6.2832,
+    taken: false, anim: 0
+  });
+}
+
+function orbLogic(){
+  const ca = Math.cos(obj.ang), sa = Math.sin(obj.ang);
+  const cr = CALM.r * S;
+  const ra = P.objLen * 0.90 + cr * CALM.grab;
+  const rn = P.objWid * 1.70 + cr * CALM.grab;
+  for (let i = 0; i < orbs.length; i++){
+    const o = orbs[i];
+    if (o.taken) continue;
+    const dx = o.x - obj.x, dy = o.y - obj.y;
+    if (dx * dx + dy * dy > (ra + rn) * (ra + rn)) continue;
+    const la = dx * ca + dy * sa;
+    const ln = -dx * sa + dy * ca;
+    if ((la * la) / (ra * ra) + (ln * ln) / (rn * rn) <= 1) takeOrb(o);
+  }
+}
+
+function takeOrb(o){
+  o.taken = true; o.anim = 0.0001;
+  calm.t = CALM.dur;
+  // recovery: bleed a fast fall, but never launch the object upward
+  if (obj.vy > 120 * S) obj.vy *= (1 - CALM.brake);
+  Snd.calm();
+  burst(o.x, o.y, 14, 'calm', 0.9);
+  pops.push({ x:o.x, y:o.y, t:0, txt:'CALM AIR', big:true, calm:true });
+  haptic([10,30,15]);
+}
+
+function stepOrbs(dt){
+  const cull = cam.y + H + 240 * S;
+  for (let i = orbs.length - 1; i >= 0; i--){
+    const o = orbs[i];
+    if (o.taken){
+      o.anim += dt;
+      if (o.anim > 0.32) orbs.splice(i, 1);
+    } else if (o.y > cull){
+      orbs.splice(i, 1);
+    } else {
+      o.phase += dt * 1.7;
+    }
+  }
+  // occasional sparkle while the effect is running
+  if (calm.t > 0 && Math.random() < dt * 9){
+    parts.push({
+      t:0, x: obj.x + rnd(-30, 30) * S, y: obj.y + rnd(-30, 30) * S,
+      vx: rnd(-20, 20) * S, vy: rnd(-50, -10) * S,
+      life: rnd(0.35, 0.7), r: rnd(1.5, 3) * S, kind: 1, col: '170,240,255'
+    });
+  }
+}
+
+function drawOrbs(cy){
+  const cr = CALM.r * S;
+  for (let i = 0; i < orbs.length; i++){
+    const o = orbs[i];
+    const y = o.y - cy;
+    if (y < -70 * S || y > H + 70 * S) continue;
+
+    let sc = 1, alpha = 1;
+    if (o.taken){
+      const a = o.anim / 0.32;
+      if (a < 0.3){ sc = 1 + 0.55 * (a / 0.3); }
+      else { const b = (a - 0.3) / 0.7; sc = 1.55 * (1 - b); alpha = 1 - b; }
+    }
+    if (sc <= 0.01) continue;
+    const bob = o.taken ? 0 : Math.sin(o.phase) * 3.4 * S;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(o.x, y + bob);
+    ctx.scale(sc, sc);
+
+    // soft halo
+    const hg = ctx.createRadialGradient(0, 0, cr * 0.4, 0, 0, cr * 1.85);
+    hg.addColorStop(0, 'rgba(140,230,255,.35)');
+    hg.addColorStop(1, 'rgba(140,230,255,0)');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.arc(0, 0, cr * 1.85, 0, 6.2832); ctx.fill();
+
+    // glassy sphere
+    const g = ctx.createRadialGradient(-cr * 0.35, -cr * 0.38, cr * 0.12, 0, 0, cr);
+    g.addColorStop(0, 'rgba(255,255,255,.95)');
+    g.addColorStop(0.45, 'rgba(150,232,255,.80)');
+    g.addColorStop(1, 'rgba(70,180,230,.60)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0, 0, cr, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.6 * S; ctx.stroke();
+
+    // wind spiral inside
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 2 * S; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let k = 0; k <= 22; k++){
+      const t = k / 22;
+      const ang = o.phase * 0.8 + t * 5.0;
+      const rr = cr * 0.20 + t * cr * 0.46;
+      const px = Math.cos(ang) * rr, py = Math.sin(ang) * rr;
+      k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+// ===================================================================
+//  PARTICLES — one flat array, hard cap, no DOM
+// ===================================================================
+const MAX_AIR = 260;
+let airAcc = 0;
+
+function emitAir(dt){
+  if (air.pressure < 0.05) return;
+  airAcc += dt * (40 + air.pressure * 130);
+  while (airAcc >= 1){
+    airAcc -= 1;
+    if (parts.length >= MAX_AIR){ airAcc = 0; break; }
+    const spread = (Math.random() - 0.5) * P.coneNow * 1.9;
+    const px = -jet.dy, py = jet.dx;
+    const sp = (280 + Math.random() * 320) * S * (0.4 + air.pressure * 0.6);
+    parts.push({
+      t: 0,
+      x: jet.ox + px * spread,
+      y: jet.oy + py * spread + rnd(-6, 6) * S,
+      vx: jet.dx * sp + rnd(-30, 30) * S,
+      vy: jet.dy * sp,
+      life: rnd(0.45, 0.95),
+      r: rnd(1.4, 3.4) * S,
+      kind: 0, col: '255,255,255'
+    });
+  }
+}
+
+function burst(x, y, n, tint, power){
+  const rgb = tint === 'white'   ? '255,255,255'
+            : tint === 'gold'    ? '255,206,64'
+            : tint === 'perfect' ? '255,224,130'
+            : tint === 'calm'    ? '120,225,255'
+            : '150,225,255';
+  for (let i = 0; i < n; i++){
+    if (parts.length >= MAX_AIR + 50) break;
+    const a = Math.random() * Math.PI * 2;
+    const sp = rnd(90, 380) * S * power;
+    parts.push({
+      t: 0, x, y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.75,
+      life: rnd(0.35, 0.7), r: rnd(2, 5) * S,
+      kind: 1, col: Math.random() < 0.5 ? rgb : '255,236,180'
+    });
+  }
+}
+
+function stepParts(dt){
+  for (let i = parts.length - 1; i >= 0; i--){
+    const p = parts[i];
+    p.t += dt;
+    if (p.t >= p.life){ parts.splice(i, 1); continue; }
+    if (p.kind === 0){
+      // air particles ride the same field the feather does
+      if (air.pressure > 0.02){
+        const r = sampleJet(p.x, p.y);
+        if (r.core > 0){
+          const F = P.jetF * air.pressure * r.core * 0.55;
+          p.vx += F * jet.dx * dt;
+          p.vy += F * jet.dy * dt;
+        }
+      }
+      p.vx *= (1 - 1.5 * dt);
+      p.vy = p.vy * (1 - 1.5 * dt) + P.g * 0.25 * dt;
+    } else {
+      p.vy += P.g * 0.55 * dt;
+      p.vx *= (1 - 2.2 * dt);
+      p.vy *= (1 - 1.2 * dt);
+    }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+  for (let i = pops.length - 1; i >= 0; i--){
+    pops[i].t += dt;
+    pops[i].y -= 46 * S * dt;
+    if (pops[i].t > 0.95) pops.splice(i, 1);
+  }
+  stepCoins(dt);
+  stepOrbs(dt);
+}
+
+// ===================================================================
+//  RENDER
+// ===================================================================
+function draw(){
+  const cy = cam.y;
+
+  updateSky();
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  const span = H * 2.2;
+
+  // stars — only present once the sky darkens, gently twinkling
+  if (sky.star > 0.01){
+    for (let i = 0; i < stars.length; i++){
+      const st = stars[i];
+      let y = (st.y * span - cy * st.d) % span;
+      if (y < 0) y += span;
+      y -= span * 0.4;
+      if (y < -20 || y > H * 0.92) continue;      // keep them out of the haze
+      const tw = 0.65 + 0.35 * Math.sin(tSec * 1.5 + st.tw);
+      ctx.fillStyle = rgba(sky.cool, (sky.star * tw * 0.85).toFixed(3));
+      ctx.beginPath(); ctx.arc(st.x * W, y, st.r * S, 0, 6.2832); ctx.fill();
+    }
+  }
+
+  // parallax cloud forms, tinted by the current atmosphere
+  for (let i = 0; i < blobs.length; i++){
+    const b = blobs[i];
+    let y = (b.y * span - cy * b.d) % span;
+    if (y < 0) y += span;
+    y -= span * 0.4;
+    if (y < -H * 0.5 || y > H * 1.5) continue;
+    const tint = b.warm ? sky.warm : sky.cool;
+    ctx.fillStyle = rgba(tint, ((0.16 + b.d * 0.14) * sky.blobA).toFixed(3));
+    ctx.beginPath();
+    ctx.arc(b.x * W, y, b.r * H * 0.5, 0, 6.2832);
+    ctx.fill();
+  }
+
+  // thin wispy streaks at altitude — flattened ellipses, almost free
+  if (sky.wisp > 0.02){
+    for (let i = 0; i < 5; i++){
+      const b = blobs[i];
+      let y = (b.y * span * 0.7 + i * 137 - cy * (b.d * 0.55)) % span;
+      if (y < 0) y += span;
+      y -= span * 0.4;
+      if (y < -40 || y > H + 40) continue;
+      ctx.fillStyle = rgba(sky.cool, (0.13 * sky.wisp).toFixed(3));
+      ctx.beginPath();
+      ctx.ellipse((b.x * 0.8 + 0.1) * W, y, W * (0.30 + b.r), 5.5 * S, 0, 0, 6.2832);
+      ctx.fill();
+    }
+  }
+
+  // Distant atmospheric ribbons, parallax independent of gameplay.
+  ctx.save();ctx.globalAlpha=.055;ctx.strokeStyle='#99ffe1';ctx.lineWidth=18*S;
+  for(let i=0;i<3;i++){const y=H*(.2+i*.25)+Math.sin(tSec*.12+i)*20*S;ctx.beginPath();ctx.moveTo(-50,y);ctx.bezierCurveTo(W*.3,y-H*.2,W*.6,y+H*.18,W+50,y-H*.12);ctx.stroke()}ctx.restore();
+  for (let i = 0; i < hoops.length; i++) drawHoop(hoops[i], cy, true);   // far half
+  drawAir(cy);
+  drawParts(cy, 0);
+  drawCoins(cy);
+  drawOrbs(cy);
+  drawObject(cy);
+  for (let i = 0; i < hoops.length; i++) drawHoop(hoops[i], cy, false);  // near half
+  drawParts(cy, 1);
+  drawPops(cy);
+
+  // ground haze so the blower sits on something (colour follows the sky)
+  ctx.fillStyle = hazeGrad;
+  ctx.fillRect(0, H - 170 * S, W, 170 * S);
+
+  drawBlower(cy);
+  if (state === 'play') drawDangerEdge();
+}
+
+// -------------------------------------------------------------------
+//  PUFFY RING  (the checkpoint)
+//  A soft inflated torus seen at a shallow angle. The far half is drawn
+//  first, the flying object goes over it, then the near half is drawn on
+//  top — that overlap is what sells the depth.
+//  The gameplay opening is unchanged: this is purely how it is painted.
+// -------------------------------------------------------------------
+// Four curated pastel families — designed, not random RGB.
+const RING_PAL = {
+  coral: { lite:[255,228,214], mid:[255,168,142], deep:[233,122,101], rim:'198,96,80'  },
+  lilac: { lite:[238,229,255], mid:[188,168,242], deep:[147,125,210], rim:'120,100,182' },
+  mint:  { lite:[221,250,237], mid:[138,227,191], deep:[ 82,192,152], rim:'58,150,120'  },
+  sky:   { lite:[226,241,255], mid:[142,199,255], deep:[ 90,159,230], rim:'70,140,205'  }
+};
+// Which families read well against each atmosphere. A blue ring is never
+// offered against a blue sky, and lilac is withheld at twilight.
+const RING_BY_STAGE = [
+  ['coral','lilac','mint'],          // day       (blue sky)
+  ['coral','lilac','mint'],          // high sky  (deeper blue)
+  ['mint','sky','lilac'],            // sunset    (warm)
+  ['coral','mint','sky']             // twilight  (indigo)
+];
+let lastPal = '';
+
+function pickRingPal(){
+  const list = RING_BY_STAGE[Math.round(skyStage)] || RING_BY_STAGE[0];
+  let k = list[(Math.random() * list.length) | 0];
+  if (k === lastPal){                        // never twice in a row
+    k = list[(list.indexOf(k) + 1 + ((Math.random() * (list.length - 1)) | 0)) % list.length];
+  }
+  lastPal = k;
+  return k;
+}
+
+function drawHoop(h, cy, back){
+  // idle life: a slow breath and a tiny float. Both are VISUAL ONLY —
+  // h.y is never touched, so pass detection stays exactly as it was.
+  const bob     = Math.sin(tSec * 1.15 + h.seed) * 2.2 * S;
+  const sy      = h.y - cy + bob;
+  if (sy < -170 * S || sy > H + 170 * S) return;
+
+  const breathe = 1 + Math.sin(tSec * 1.55 + h.seed * 1.7) * 0.015;
+  const pop     = 1 + h.pulse * 0.17;
+  const rx      = h.rx * breathe * pop;
+  const ry      = h.ry * breathe * pop;
+  const tw      = Math.min(h.rx * 0.185, 19 * S) * (1 + h.pulse * 0.22);
+
+  // The ring keeps its own identity through every state: passing brightens
+  // its colour rather than swapping it for a shared green.
+  const state = h.done ? 2 : (h.missed ? 1 : 0);
+  if (h._k !== state || !h._sk){
+    h._k = state;
+    const P0 = RING_PAL[h.pal] || RING_PAL.sky;
+    let lite = P0.lite, mid = P0.mid, deep = P0.deep, rim = P0.rim;
+    if (state === 2){                       // passed: lighter and luminous
+      lite = mix(lite, [255,255,255], 0.55);
+      mid  = mix(mid,  [255,255,255], 0.46);
+      deep = mix(deep, [255,255,255], 0.30);
+    } else if (state === 1){                // missed: desaturate toward grey
+      const g = [170,178,190];
+      lite = mix(lite, g, 0.72); mid = mix(mid, g, 0.78); deep = mix(deep, g, 0.78);
+      rim  = '140,150,165';
+    }
+    h._sk = { lite: rgb(lite), mid: rgb(mid), deep: rgb(deep), rim };
+  }
+  const sk = h._sk;
+
+  ctx.save();
+  ctx.translate(h.x, sy);
+  ctx.lineCap = 'round';
+  ctx.shadowColor=sk.mid;ctx.shadowBlur=10*S;
+
+  if (back){
+    // ---- far half (upper arc) : dimmer, sits behind the object --------
+    ctx.lineWidth = tw;
+    ctx.strokeStyle = sk.deep;
+    ctx.globalAlpha = 0.82;
+    ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, Math.PI, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // top-lit edge on the outside of the tube
+    ctx.lineWidth = tw * 0.30;
+    ctx.strokeStyle = 'rgba(255,255,255,.30)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx + tw * 0.26, ry + tw * 0.26, 0, Math.PI * 1.12, Math.PI * 1.88);
+    ctx.stroke();
+
+    // aiming aid: a faint wash across the opening when you are near
+    if (!h.done && h.glow > 0.02){
+      ctx.fillStyle = 'rgba(255,255,255,' + (h.glow * 0.22).toFixed(3) + ')';
+      ctx.beginPath(); ctx.ellipse(0, 0, rx - tw * 0.45, ry - tw * 0.45, 0, 0, 6.2832); ctx.fill();
+    }
+
+  } else {
+    // ---- near half (lower arc) : the fully lit, puffy side ------------
+
+    // 1. ambient shadow just under the tube
+    ctx.lineWidth = tw * 1.02;
+    ctx.strokeStyle = 'rgba(70,115,165,.16)';
+    ctx.beginPath(); ctx.ellipse(0, 3.5 * S, rx, ry, 0, 0.12, Math.PI - 0.12); ctx.stroke();
+
+    // 2. body, lit from above
+    const g = ctx.createLinearGradient(0, -ry - tw * 0.5, 0, ry + tw * 0.6);
+    g.addColorStop(0,    sk.lite);
+    g.addColorStop(0.45, sk.mid);
+    g.addColorStop(1,    sk.deep);
+    ctx.lineWidth = tw;
+    ctx.strokeStyle = g;
+    ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI); ctx.stroke();
+
+    // 3. soft inner shading where the tube curves into the hole
+    ctx.lineWidth = tw * 0.26;
+    ctx.strokeStyle = 'rgba(' + sk.rim + ',.22)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx - tw * 0.36, ry - tw * 0.36, 0, 0.18, Math.PI - 0.18);
+    ctx.stroke();
+
+    // 4. highlight riding the top of the tube; the span drifts a little,
+    //    which reads as a gentle shimmer without moving the ring
+    const sh = Math.sin(tSec * 0.8 + h.seed) * 0.16;
+    ctx.lineWidth = tw * 0.28;
+    ctx.strokeStyle = 'rgba(255,255,255,.62)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx - tw * 0.22, ry - tw * 0.22, 0, 0.55 + sh, Math.PI * 0.62 + sh);
+    ctx.stroke();
+
+    // 5. small specular blob for the toy/candy feel
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath();
+    ctx.ellipse(-rx * 0.62, ry * 0.52, tw * 0.30, tw * 0.16, -0.5, 0, 6.2832);
+    ctx.fill();
+
+    // ---- pass reaction: expanding halo + perfect flash ---------------
+    if (h.pulse > 0.02){
+      ctx.lineWidth = tw * 0.30 * h.pulse;
+      ctx.strokeStyle = 'rgba(255,255,255,' + (h.pulse * 0.55).toFixed(3) + ')';
+      const e = 1 + (1 - h.pulse) * 0.75;
+      ctx.beginPath(); ctx.ellipse(0, 0, rx * e, ry * e, 0, 0, 6.2832); ctx.stroke();
+    }
+    if (h.flash > 0.02){
+      const fg = ctx.createRadialGradient(0, 0, rx * 0.2, 0, 0, rx * 1.35);
+      fg.addColorStop(0, 'rgba(255,246,205,' + (h.flash * 0.40).toFixed(3) + ')');
+      fg.addColorStop(1, 'rgba(255,246,205,0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath(); ctx.ellipse(0, 0, rx * 1.35, ry * 2.6, 0, 0, 6.2832); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function drawAir(cy){
+  if (air.pressure < 0.02) return;
+  const oy = jet.oy - cy;
+  const p = air.pressure;
+  const len = P.range;
+  const endX = jet.ox + jet.dx * len, endY = oy + jet.dy * len;
+
+  const cf = calmF();
+  const g = ctx.createLinearGradient(jet.ox, oy, endX, endY);
+  g.addColorStop(0,   'rgba(' + (255 - 40 * cf) + ',255,255,' + ((0.30 + 0.10 * cf) * p).toFixed(3) + ')');
+  g.addColorStop(0.5, 'rgba(' + (210 - 50 * cf) + ',240,255,' + ((0.16 + 0.08 * cf) * p).toFixed(3) + ')');
+  g.addColorStop(1,   'rgba(180,240,255,0)');
+
+  const px = -jet.dy, py = jet.dx;
+  const w0 = P.coneNow * 0.95, w1 = P.coneNow + len * P.spreadNow;
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(jet.ox + px * w0, oy + py * w0);
+  ctx.lineTo(endX + px * w1, endY + py * w1);
+  ctx.lineTo(endX - px * w1, endY - py * w1);
+  ctx.lineTo(jet.ox - px * w0, oy - py * w0);
+  ctx.closePath();
+  ctx.fill();
+
+  // soft curved flow lines — short, low contrast, they only hint at the shape
+  ctx.strokeStyle = cf > 0.01
+    ? 'rgba(190,245,255,' + ((0.20 + 0.14 * cf) * p).toFixed(3) + ')'
+    : 'rgba(255,255,255,' + (0.20 * p).toFixed(3) + ')';
+  ctx.lineWidth = (1.7 + 0.5 * cf) * S;
+  ctx.lineCap = 'round';
+  for (let i = -2; i <= 2; i++){
+    const off = i * P.coneNow * 0.5;
+    const wob = Math.sin(tSec * 5 + i * 1.4) * 7 * S;
+    const l = len * (0.26 + 0.05 * ((i + 2) % 3)) * (0.5 + p * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(jet.ox + px * off, oy + py * off);
+    ctx.quadraticCurveTo(
+      jet.ox + px * (off * 1.5 + wob) + jet.dx * l * 0.55,
+      oy   + py * (off * 1.5)         + jet.dy * l * 0.55,
+      jet.ox + px * (off * 2.1 + wob * 1.6) + jet.dx * l,
+      oy   + py * (off * 2.1)               + jet.dy * l
+    );
+    ctx.stroke();
+  }
+}
+
+function drawParts(cy, kind){
+  for (let i = 0; i < parts.length; i++){
+    const p = parts[i];
+    if (p.kind !== kind) continue;
+    const k = 1 - p.t / p.life;
+    const y = p.y - cy;
+    if (y < -40 || y > H + 40) continue;
+    if (kind === 0){
+      const sp = Math.hypot(p.vx, p.vy) || 1;
+      const l = Math.min(sp * 0.022, 13 * S);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (k * 0.40).toFixed(3) + ')';
+      ctx.lineWidth = p.r * 0.9;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, y);
+      ctx.lineTo(p.x - p.vx / sp * l, y - p.vy / sp * l);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = 'rgba(' + p.col + ',' + (k * 0.9).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x, y, p.r * (0.4 + k * 0.9), 0, 6.2832);
+      ctx.fill();
+      if(k>.4){ctx.strokeStyle='rgba('+p.col+','+(k*.5)+')';ctx.lineWidth=S;ctx.beginPath();ctx.moveTo(p.x-p.r*2,y);ctx.lineTo(p.x+p.r*2,y);ctx.moveTo(p.x,y-p.r*2);ctx.lineTo(p.x,y+p.r*2);ctx.stroke()}
+    }
+  }
+}
+
+function drawPops(cy){
+  for (let i = 0; i < pops.length; i++){
+    const p = pops[i];
+    if (p.t < 0) continue;
+    const k = 1 - p.t / 0.95;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, k * 1.6);
+    ctx.font = '900 ' + ((p.perfect ? 30 : p.big ? 26 : 21) * S).toFixed(0) + 'px ui-rounded, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.lineWidth = 4 * S;
+    ctx.strokeText(p.txt, p.x, p.y - cy);
+    ctx.fillStyle = p.calm ? '#1fa8d8'
+                  : p.perfect ? '#ff8a3d'
+                  : p.gold ? '#e09415'
+                  : (p.big ? '#ff8a3d' : '#2f8fe8');
+    ctx.fillText(p.txt, p.x, p.y - cy);
+    ctx.restore();
+  }
+}
+
+// -------------------------------------------------------------------
+//  FEATHER
+//  Drawn in local space with the shaft along +x: quill at -L, tip at +L.
+//  The whole thing is rotated by obj.ang, which is real physical state,
+//  so the drawing needs no animation of its own.
+// -------------------------------------------------------------------
+function drawObject(cy){
+  const y = obj.y - cy;
+  const L = P.objLen, Vw = P.objWid;
+
+  ctx.save();
+  ctx.translate(obj.x, y);
+
+  // Calm Air aura — deliberately soft: "safe", not "powered up"
+  const cf = calmF();
+  if (cf > 0.01){
+    const R = Math.max(L, Vw);
+    const ag = ctx.createRadialGradient(0, 0, R * 0.6, 0, 0, R * 2.3);
+    ag.addColorStop(0, 'rgba(150,235,255,' + (0.30 * cf).toFixed(3) + ')');
+    ag.addColorStop(1, 'rgba(150,235,255,0)');
+    ctx.fillStyle = ag;
+    ctx.beginPath(); ctx.arc(0, 0, R * 2.3, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = 'rgba(190,245,255,' + (0.45 * cf).toFixed(3) + ')';
+    ctx.lineWidth = 2 * S;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * (1.5 + Math.sin(tSec * 2.6) * 0.06), 0, 6.2832);
+    ctx.stroke();
+  }
+
+  // halo when it is sitting in the stream
+  const r2 = sampleJet(obj.x, obj.y);
+  if (air.pressure > 0.05 && r2.core > 0.02){
+    ctx.fillStyle = 'rgba(255,255,255,' + (r2.core * air.pressure * 0.40).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(L, Vw) * 1.25, 0, 6.2832); ctx.fill();
+  }
+
+  ctx.rotate(obj.ang);
+  paintShape(ctx, OBJ, L, Vw, S, obj.bend);
+  ctx.restore();
+}
+
+// -------------------------------------------------------------------
+//  SHAPE PAINTERS
+//  Pure drawing: local space, shaft along +x, already translated and
+//  rotated by the caller. The shop previews reuse these directly, so a
+//  card always shows exactly what flies.
+//    L  = half-length   Vw = half-width   u = line-width unit
+// -------------------------------------------------------------------
+function paintShape(c, prof, L, Vw, u, bend){
+  c.save(); c.shadowColor='#9affdc55';c.shadowBlur=9*u;
+  switch (prof.art){
+    case 'football': paintFootball(c, L, u); break;
+    case 'pingpong': paintPingPong(c, L, u); break;
+    case 'balloon' : paintBalloon(c, L, Vw, u, bend); break;
+    case 'plane'   : paintPlane(c, L, Vw, u); break;
+    case 'rocket'  : paintRocket(c, L, Vw, u); break;
+    default        : paintFeather(c, L, Vw, u, bend);
+  }
+  c.restore();
+}
+
+function paintFootball(c, R, u){
+  const g = c.createRadialGradient(-R*0.35, -R*0.38, R*0.15, 0, 0, R);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#f2f2f2'); g.addColorStop(1, '#cfd3d8');
+  c.fillStyle = g;
+  c.beginPath(); c.arc(0, 0, R, 0, 6.2832); c.fill();
+  c.strokeStyle = 'rgba(60,70,80,.45)'; c.lineWidth = 1.6*u; c.stroke();
+  // centre pentagon + spokes: reads as a football at any size
+  c.fillStyle = '#2f3640';
+  c.beginPath();
+  for (let i = 0; i < 5; i++){
+    const a = -Math.PI/2 + i * 1.2566;
+    const px = Math.cos(a) * R*0.34, py = Math.sin(a) * R*0.34;
+    i ? c.lineTo(px, py) : c.moveTo(px, py);
+  }
+  c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(47,54,64,.75)'; c.lineWidth = 2.1*u;
+  c.beginPath();
+  for (let i = 0; i < 5; i++){
+    const a = -Math.PI/2 + i * 1.2566;
+    c.moveTo(Math.cos(a)*R*0.40, Math.sin(a)*R*0.40);
+    c.lineTo(Math.cos(a)*R*0.86, Math.sin(a)*R*0.86);
+  }
+  c.stroke();
+}
+
+function paintPingPong(c, R, u){
+  const g = c.createRadialGradient(-R*0.36, -R*0.40, R*0.12, 0, 0, R);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, '#fff1d8'); g.addColorStop(1, '#ffbf6b');
+  c.fillStyle = g;
+  c.beginPath(); c.arc(0, 0, R, 0, 6.2832); c.fill();
+  c.strokeStyle = 'rgba(220,150,60,.40)'; c.lineWidth = 1.3*u; c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.85)';
+  c.beginPath(); c.ellipse(-R*0.32, -R*0.34, R*0.28, R*0.19, -0.6, 0, 6.2832); c.fill();
+  // faint seam only — it is a ping-pong ball, not a basketball
+  c.strokeStyle = 'rgba(225,170,100,.22)'; c.lineWidth = 1.0*u;
+  c.beginPath(); c.ellipse(0, 0, R*0.90, R*0.30, 0.5, 0, 6.2832); c.stroke();
+}
+
+function paintBalloon(c, RX, RY, u, bend){
+  // squash slightly with angular motion so strong air visibly wobbles it
+  const sx = RX * (1 - bend * 0.10), sy = RY * (1 + bend * 0.10);
+  // string
+  c.strokeStyle = 'rgba(150,120,90,.7)'; c.lineWidth = 1.3*u;
+  c.beginPath();
+  c.moveTo(0, sy * 0.98);
+  c.quadraticCurveTo(sx * 0.30, sy * 1.30, -sx * 0.10, sy * 1.62);
+  c.stroke();
+  // body
+  const g = c.createRadialGradient(-sx*0.34, -sy*0.36, sx*0.12, 0, 0, sx*1.25);
+  g.addColorStop(0, '#ff9db4'); g.addColorStop(0.5, '#f4607f'); g.addColorStop(1, '#d33e63');
+  c.fillStyle = g;
+  c.beginPath(); c.ellipse(0, 0, sx, sy, 0, 0, 6.2832); c.fill();
+  c.strokeStyle = 'rgba(160,40,70,.4)'; c.lineWidth = 1.5*u; c.stroke();
+  // knot
+  c.fillStyle = '#d33e63';
+  c.beginPath(); c.moveTo(-sx*0.13, sy*0.95); c.lineTo(sx*0.13, sy*0.95);
+  c.lineTo(0, sy*1.14); c.closePath(); c.fill();
+  // highlight
+  c.fillStyle = 'rgba(255,255,255,.55)';
+  c.beginPath(); c.ellipse(-sx*0.34, -sy*0.36, sx*0.20, sy*0.26, -0.5, 0, 6.2832); c.fill();
+}
+
+function paintPlane(c, L, Vw, u){
+  // simple folded dart pointing along +x
+  const paper=c.createLinearGradient(-L,-Vw,L,Vw);paper.addColorStop(0,'#a2e3d1');paper.addColorStop(.5,'#fcffeb');paper.addColorStop(1,'#d7ffed');c.fillStyle = paper;
+  c.beginPath();
+  c.moveTo(L, 0); c.lineTo(-L*0.85, -Vw); c.lineTo(-L*0.42, 0); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(120,160,200,.65)'; c.lineWidth = 1.4*u; c.stroke();
+
+  c.fillStyle = '#4c9994';
+  c.beginPath();
+  c.moveTo(L, 0); c.lineTo(-L*0.85, Vw); c.lineTo(-L*0.42, 0); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(120,160,200,.65)'; c.stroke();
+
+  // centre fold
+  c.strokeStyle = 'rgba(90,130,175,.8)'; c.lineWidth = 1.6*u;
+  c.beginPath(); c.moveTo(L, 0); c.lineTo(-L*0.42, 0); c.stroke();
+}
+
+function paintRocket(c, L, Vw, u){
+  // body
+  const g = c.createLinearGradient(0, -Vw, 0, Vw);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#f0f3f7'); g.addColorStop(1, '#c9d2dc');
+  c.fillStyle = g;
+  c.beginPath();
+  c.moveTo(L, 0);
+  c.quadraticCurveTo(L*0.30, -Vw, -L*0.55, -Vw*0.92);
+  c.lineTo(-L*0.55, Vw*0.92);
+  c.quadraticCurveTo(L*0.30, Vw, L, 0);
+  c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(90,110,135,.5)'; c.lineWidth = 1.4*u; c.stroke();
+  // nose cone
+  c.fillStyle = '#ef5350';
+  c.beginPath();
+  c.moveTo(L, 0);
+  c.quadraticCurveTo(L*0.42, -Vw*0.86, L*0.30, -Vw*0.72);
+  c.lineTo(L*0.30, Vw*0.72);
+  c.quadraticCurveTo(L*0.42, Vw*0.86, L, 0);
+  c.closePath(); c.fill();
+  // fins
+  c.fillStyle = '#ef5350';
+  c.beginPath();
+  c.moveTo(-L*0.45, -Vw*0.85); c.lineTo(-L*1.02, -Vw*1.75); c.lineTo(-L*0.55, -Vw*0.30);
+  c.closePath(); c.fill();
+  c.beginPath();
+  c.moveTo(-L*0.45, Vw*0.85); c.lineTo(-L*1.02, Vw*1.75); c.lineTo(-L*0.55, Vw*0.30);
+  c.closePath(); c.fill();
+  // window
+  c.fillStyle = '#143d50';
+  c.beginPath(); c.arc(L*0.02, 0, Vw*0.42, 0, 6.2832); c.fill();
+  c.strokeStyle = '#e2ca93'; c.lineWidth = 2*u; c.stroke();
+  c.fillStyle='#baffef'; c.beginPath();c.arc(L*.02-Vw*.12,-Vw*.13,Vw*.12,0,Math.PI*2);c.fill();
+}
+
+function paintFeather(c, L, Vw, u, bend){
+  const ctx = c;
+  const S = u;
+
+  // the vane flexes with angular motion — a light thing bending in the air
+  const b = bend;
+  const upper = Vw * (1 - b * 0.30);
+  const lower = Vw * (1 + b * 0.30);
+  const tipY  = -b * L * 0.16;
+
+  // ---- vane -------------------------------------------------------
+  // Full, rounded proportions so it stays readable as a feather even when
+  // it turns edge-on for a moment.
+  // Asymmetric vane — narrow on top, fuller underneath — is what separates
+  // a feather silhouette from a leaf.
+  function vanePath(){
+    ctx.beginPath();
+    ctx.moveTo(-L * 0.80, -upper * 0.06);                          // vane starts
+    ctx.bezierCurveTo(-L * 0.34, -upper * 1.06,
+                       L * 0.26, -upper * 0.96,
+                       L * 0.90, tipY + upper * 0.14);             // soft tip
+    ctx.bezierCurveTo( L * 0.24,  lower * 1.20,
+                      -L * 0.34,  lower * 1.30,
+                      -L * 0.80, -upper * 0.06);
+    ctx.closePath();
+  }
+
+  // soft shadow underneath lifts it off the sky
+  ctx.save();
+  ctx.translate(1.5 * S, 2.5 * S);
+  ctx.fillStyle = 'rgba(120,150,180,.16)';
+  vanePath(); ctx.fill();
+  ctx.restore();
+
+  const g = ctx.createLinearGradient(0, -Vw * 1.2, 0, Vw * 1.2);
+  g.addColorStop(0,    '#ffffff');
+  g.addColorStop(0.42, '#d1ffed');
+  g.addColorStop(1,    '#57bfae');
+  ctx.fillStyle = g;
+  vanePath(); ctx.fill();
+
+  ctx.strokeStyle = 'rgba(184,255,224,.7)';
+  ctx.lineWidth = 1.9 * S;
+  ctx.stroke();
+
+  // ---- barbs: a few strokes for texture, cheap -------------------
+  ctx.strokeStyle = 'rgba(26,108,100,.45)';
+  ctx.lineWidth = 1.2 * S;
+  ctx.beginPath();
+  for (let i = 0; i < 14; i++){
+    const t = -0.62 + i * 0.105;
+    const sx = L * t, sy = tipY * (t + 0.5) * 0.5;
+    const w = (1 - Math.abs(t) * 0.5);
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + L * 0.14, sy - upper * 0.92 * w);
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + L * 0.16, sy + lower * 0.90 * w);
+  }
+  ctx.stroke();
+
+  // ---- highlight --------------------------------------------------
+  ctx.fillStyle = 'rgba(255,255,255,.55)';
+  ctx.beginPath();
+  ctx.moveTo(-L * 0.45, -upper * 0.30);
+  ctx.quadraticCurveTo(0, -upper * 0.92, L * 0.62, -upper * 0.34);
+  ctx.quadraticCurveTo(0, -upper * 0.52, -L * 0.45, -upper * 0.30);
+  ctx.closePath();
+  ctx.fill();
+
+  // ---- central shaft (rachis), tapering to the tip ----------------
+  ctx.strokeStyle = 'rgba(214,175,128,.95)';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 2.6 * S;
+  ctx.beginPath();
+  ctx.moveTo(-L * 0.92, 0);
+  ctx.quadraticCurveTo(0, tipY * 0.45, L * 0.86, tipY * 0.9);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(232,205,170,.9)';
+  ctx.lineWidth = 1.3 * S;
+  ctx.beginPath();
+  ctx.moveTo(L * 0.10, tipY * 0.5);
+  ctx.quadraticCurveTo(L * 0.55, tipY * 0.75, L * 0.97, tipY);
+  ctx.stroke();
+
+  // bare quill (calamus) at the heavy end — reads instantly as "feather"
+  ctx.strokeStyle = 'rgba(206,166,118,.9)';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 3.1 * S;
+  ctx.beginPath();
+  ctx.moveTo(-L * 1.12, 0);
+  ctx.lineTo(-L * 0.70, 0);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.55)';
+  ctx.lineWidth = 1.2 * S;
+  ctx.beginPath();
+  ctx.moveTo(-L * 1.08, -0.6 * S);
+  ctx.lineTo(-L * 0.78, -0.6 * S);
+  ctx.stroke();
+}
+
+function drawBlower(cy){
+  const oy = jet.oy - cy;
+  const p = air.pressure;
+  ctx.save();
+  ctx.translate(jet.ox, oy);
+
+  if (p > 0.02){
+    ctx.fillStyle = 'rgba(120,200,255,' + (p * 0.30).toFixed(3) + ')';
+    ctx.beginPath(); ctx.arc(0, 6 * S, (34 + p * 22) * S, 0, 6.2832); ctx.fill();
+  }
+
+  const w = 30 * S, h = 26 * S;
+
+  ctx.strokeStyle='#9df9d1';ctx.lineWidth=1.5*S;ctx.beginPath();ctx.ellipse(0,25*S,48*S,10*S,0,0,Math.PI*2);ctx.stroke();
+  ctx.rotate(air.tilt);
+  ctx.fillStyle = '#41607a';
+  roundRect(-w * 0.62, -h, w * 1.24, h * 0.9, 7 * S); ctx.fill();
+  ctx.fillStyle = '#5b83a3';
+  roundRect(-w * 0.44, -h * 0.95, w * 0.88, h * 0.55, 5 * S); ctx.fill();
+  ctx.rotate(-air.tilt);
+
+  const metal=ctx.createLinearGradient(-w,0,w,0);metal.addColorStop(0,'#1b4350');metal.addColorStop(.45,'#497d81');metal.addColorStop(1,'#16323f');ctx.fillStyle = metal;
+  roundRect(-w, -h * 0.28, w * 2, h * 1.5, 12 * S); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.20)';
+  roundRect(-w * 0.8, -h * 0.16, w * 1.6, h * 0.4, 8 * S); ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,255,255,.25)';
+  roundRect(-w * 0.7, h * 0.72, w * 1.4, 5 * S, 3 * S); ctx.fill();
+  ctx.fillStyle = p > 0.75 ? '#ffd166' : '#7fd4ff';
+  roundRect(-w * 0.7, h * 0.72, Math.max(w * 1.4 * p, 0.001), 5 * S, 3 * S); ctx.fill();
+
+  ctx.restore();
+}
+
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  if (ctx.roundRect){ ctx.roundRect(x, y, w, h, r); return; }
+  r = Math.min(r, w / 2, h / 2);
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawDangerEdge(){
+  const d = (obj.y - cam.y) / H;                 // 0 = top, 1 = bottom
+  if (d < 0.80) return;
+  const a = clamp((d - 0.80) / 0.20, 0, 1) * 0.42;
+  const g = ctx.createLinearGradient(0, H, 0, H - 150 * S);
+  g.addColorStop(0, 'rgba(255,90,90,' + a.toFixed(3) + ')');
+  g.addColorStop(1, 'rgba(255,90,90,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, H - 150 * S, W, 150 * S);
+}
+
+// ===================================================================
+//  MAIN LOOP — single rAF, fixed-step physics, capped catch-up
+// ===================================================================
+const STEP = 1 / 120;
+let acc = 0, last = performance.now();
+
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 0.25) dt = 0.25;
+
+  if (state === 'play'){
+    acc += dt;
+    let guard = 0;
+    while (state === 'play' && acc >= STEP && guard++ < 8){ physics(STEP); acc -= STEP; }
+    if (guard >= 8) acc = 0;
+    stepParts(dt);
+    Snd.wind(air.pressure, air.tilt);
+    if (comboTimer > 0){
+      comboTimer -= dt;
+      if (comboTimer <= 0) showCombo(false);
+    }
+  } else {
+    if(state !== 'paused') { stepParts(dt); tSec += dt; }
+    acc = 0;
+  }
+
+  draw();
+}
+
+// ===================================================================
+//  BOOT
+// ===================================================================
+let hapticsOn=true;
+try{hapticsOn=localStorage.getItem('airlift_haptics')!=='false'; Snd.on=localStorage.getItem('airlift_sound')!=='false'}catch(e){}
+function haptic(pattern){if(tapped && hapticsOn && navigator.vibrate)try{navigator.vibrate(pattern)}catch(e){}}
+const hb=document.getElementById('hapticBtn'), sb=document.getElementById('sndBtn');
+function syncSettings(){hb.textContent=navigator.vibrate?(hapticsOn?'TİTREŞİM AÇIK':'TİTREŞİM YOK'):'TİTREŞİM YOK';hb.disabled=!navigator.vibrate;hb.title=navigator.vibrate?'Titreşimi aç / kapat':'Bu tarayıcı titreşimi desteklemiyor';hb.setAttribute('aria-pressed',String(hapticsOn&&!!navigator.vibrate));sb.textContent=Snd.on?'SES AÇIK':'SES YOK';sb.setAttribute('aria-label','Sesi aç veya kapat');sb.setAttribute('aria-pressed',String(Snd.on))}
+hb.addEventListener('click',()=>{hapticsOn=!hapticsOn;tapped=true;haptic(12);try{localStorage.setItem('airlift_haptics',String(hapticsOn))}catch(e){}syncSettings()});
+function pauseGame(){if(state!=='play')return;state='paused';ptUp();air.down=false;air.pressure=0;Snd.wind(0,0);document.getElementById('pauseScreen').classList.add('on');document.getElementById('pauseBtn').style.display='none'}
+function resumeGame(){if(state!=='paused')return;state='play';last=performance.now();acc=0;Snd.resume();document.getElementById('pauseScreen').classList.remove('on');document.getElementById('pauseBtn').style.display='block'}
+document.getElementById('pauseBtn').addEventListener('click',pauseGame);
+document.getElementById('resumeBtn').addEventListener('click',resumeGame);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseGame()});
+window.addEventListener('blur',pauseGame);
+window.addEventListener('keydown',e=>{if(e.code==='Space' && state==='play' && e.target===document.body){e.preventDefault();air.down=true;Snd.init();Snd.resume();document.getElementById('flightHint').style.opacity=0}if(state==='play' && ['ArrowLeft','ArrowRight'].includes(e.code)){e.preventDefault();air.px=clamp(air.px+(e.code==='ArrowLeft'?-24:24)*S,0,W)}if(e.code==='Escape'){state==='paused'?resumeGame():pauseGame()}});
+window.addEventListener('keyup',e=>{if(e.code==='Space')ptUp()});
+syncSettings();
+resize();
+applyProfile();
+updateObjectText();
+reset();
+requestAnimationFrame(frame);
+
+// Live tuning handle. Poke at the active profile while playing, e.g.
+//   AIRLIFT.OBJ.dragEdge = 0.9   -> feather stops behaving like a feather
+//   AIRLIFT.OBJ.flutter  = 0     -> kill the drift
+// then call AIRLIFT.applyProfile() to re-resolve the scaled values.
+window.AIRLIFT = {
+  P, OBJ, PROFILES, setObject, applyProfile,
+  obj, air, cam, jet, sampleJet, physics, draw, hoops: () => hoops,
+  coins: () => coins, orbs: () => orbs, calm, calmF, addCoin, spendCoins, loadCoins, saveCoins, stepParts,
+  OBJECT_ORDER, setObject, selectObject, unlockObject, loadObjects, keyOf,
+  get unlocked(){ return unlocked.slice(); }, get objKey(){ return keyOf(OBJ); },
+  get runCoins(){ return runCoins; }, get totalCoins(){ return totalCoins; },
+  play: () => { startGame(); },
+  get state(){ return state; },
+  get score(){ return score; },
+  get combo(){ return combo; }
+};
+
+})();
+</script>
+</body>
+</html>
