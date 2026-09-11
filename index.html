@@ -34,16 +34,25 @@
   .lbl{font-size:10px;font-weight:800;letter-spacing:.14em;opacity:.55;text-transform:uppercase}
   .val{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
   .val.small{font-size:17px;opacity:.75}
+  /* Floating text only: no pill, no card, no panel behind it. */
   #comboTag{
     position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 74px);
-    transform:translate(-50%,0) scale(.6);
-    font-size:19px;font-weight:900;letter-spacing:.02em;
-    color:#fff;background:linear-gradient(180deg,#ffb44d,#ff7a3d);
-    padding:5px 16px;border-radius:16px;opacity:0;
-    box-shadow:0 6px 18px rgba(255,120,60,.35);
-    transition:opacity .18s ease, transform .18s cubic-bezier(.2,1.7,.4,1);
+    transform:translate(-50%,0);
+    font-size:27px;font-weight:900;letter-spacing:.07em;
+    color:#ffd9a0;background:none;border:0;padding:0;border-radius:0;box-shadow:none;
+    opacity:0;pointer-events:none;white-space:nowrap;
+    text-shadow:0 2px 12px rgba(0,0,0,.55), 0 0 22px rgba(255,150,70,.35);
+    will-change:transform,opacity;
   }
-  #comboTag.on{opacity:1;transform:translate(-50%,0) scale(1)}
+  /* ~0.11s in, ~0.38s held, ~0.46s fading upward. Restarted on every ring. */
+  #comboTag.show{animation:comboRise .95s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes comboRise{
+    0%  {opacity:0;transform:translate(-50%,8px)  scale(.72)}
+    12% {opacity:1;transform:translate(-50%,0)    scale(1.14)}
+    22% {opacity:1;transform:translate(-50%,0)    scale(1)}
+    52% {opacity:1;transform:translate(-50%,-5px) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-30px)scale(.97)}
+  }
 
   /* ---------- coin counter ---------- */
   #coinPill{
@@ -194,9 +203,6 @@
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 #fuelHUD{position:absolute;top:calc(env(safe-area-inset-top,0px) + 76px);left:14px;width:142px;background:#071c30d9;padding:10px 12px;border:1px solid #f4c56c44;border-radius:13px}
 #fuelCaption{display:flex;justify-content:space-between;color:#fce1a4;font-size:10px;font-weight:800;letter-spacing:.07em}.fuelTrack{height:6px;border-radius:5px;background:#ffffff16;margin-top:7px;overflow:hidden}#fuelFill{height:100%;background:linear-gradient(90deg,#efa743,#ffe8a2);transform-origin:left;transition:transform .16s linear,background .2s}#fuelHUD.low #fuelFill{background:#ff775c}
-#fuelHUD.full #fuelFill{transition:transform .22s cubic-bezier(.2,1.4,.4,1),background .2s}
-#fuelHUD.full{animation:fuelFull .55s ease-out}
-@keyframes fuelFull{0%{box-shadow:0 0 0 0 #ffd98a00}35%{box-shadow:0 0 16px 2px #ffd98a99;border-color:#ffdf9c}100%{box-shadow:0 0 0 0 #ffd98a00}}
 #notice{position:fixed;z-index:20;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);transform:translateX(-50%);width:min(340px,90vw);padding:13px 17px;border:1px solid #ddf6d74d;border-radius:14px;background:#112d42f5;color:#e8f5e6;font-size:12px;line-height:1.65;pointer-events:none;opacity:0;transition:opacity .2s}#notice.on{opacity:1}
 #comboTag{top:calc(env(safe-area-inset-top,0px) + 155px)}#hapticBtn{max-width:146px;font-size:10px}
 @media(max-height:500px){#fuelHUD{top:70px;padding:7px 10px}.card .sub{line-height:1.4}}
@@ -212,7 +218,7 @@
     <div class="pill"><div class="lbl">REKOR</div><div class="val small" id="uiBest">0</div></div>
   </div>
   <div id="coinPill"><span class="coinIcon"></span><span id="coinVal">0</span></div>
-  <div id="fuelHUD"><div id="fuelCaption"><span>⛽ YAKIT</span><span id="fuelVal">%100</span></div><div class="fuelTrack" role="progressbar" aria-label="Motor yakıtı" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="fuelMeter"><div id="fuelFill"></div></div></div><div id="comboTag">COMBO x2</div>
+  <div id="fuelHUD"><div id="fuelCaption"><span>⛽ YAKIT</span><span id="fuelVal">%100</span></div><div class="fuelTrack" role="progressbar" aria-label="Motor yakıtı" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" id="fuelMeter"><div id="fuelFill"></div></div></div><div id="comboTag"></div>
 </div>
 <button id="sndBtn" title="sound">&#128266;</button>
 
@@ -221,7 +227,7 @@
     <div class="edition">GECE YOLCULUĞU / 01</div><div class="title">AIRLIFT</div>
     <div class="sub">Basılı tut, hava akımını yükselt.<br>Sağa sola kaydır, rüzgâra yön ver.<br><span id="startLine">Float the feather through the rings.</span></div>
     <div class="hintHand"></div>
-    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5"><b style="color:#ffe0a0">⛽ Altın halka yakıtın üçte birini verir.</b><br>Halkaları geçtikçe hızlan; yakıtını koru.</div>
+    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5"><b style="color:#ffe0a0">⛽ Her halka yakıt doldurur.</b><br>Halkaları kaçırma; yakıtın tükenmesin.</div>
     <div class="startCoins"><span class="coinIcon"></span><span id="startCoinVal">0</span></div>
     <button class="btn" id="startBtn">UÇUŞA BAŞLA</button>
     <button class="btnAlt" id="objBtn">HANGAR</button>
@@ -343,24 +349,24 @@ const PROFILES = {
 
     len        : 34,     // half-length along the shaft (px @ 720p ref)
     wid        : 15,     // half-width of the vane
-    mass       : 1.00,   // reference mass — keeps the tuned feather identical
+    mass       : 1.82,   // reference mass — keeps the tuned feather identical
 
-    gravity    : 0.30,   // x base gravity — floats down slowly
-    lift       : 0.95,   // x base jet force — very easy to pick up
-    hMul       : 1.35,   // x horizontal authority of the jet
-    dragLin    : 2.05,   // still very draggy; just not sluggish
-    dragQuad   : 0.0165,
-    dragEdge   : 0.18,
-    airSpeed   : 970,    // strong air carries it up briskly
-    center     : 0.62,
-    turb       : 0.24,   // still wanders, but no longer fights the player
+    gravity    : 0.83,   // x base gravity — floats down slowly
+    lift       : 3.66,   // x base jet force — very easy to pick up
+    hMul       : 1.8,   // x horizontal authority of the jet
+    dragLin    : 0.73,   // still very draggy; just not sluggish
+    dragQuad   : 0.0047,
+    dragEdge   : 0.17,
+    airSpeed   : 795,    // strong air carries it up briskly
+    center     : 1.27,
+    turb       : 0.09,   // still wanders, but no longer fights the player
 
-    flutter    : 150, flutterFreq: 0.85, gustChance: 0.40, gustPower: 1.6,
+    flutter    : 90, flutterFreq: 0.85, gustChance: 0.28, gustPower: 0.8,
 
-    angDrag    : 3.1, angResp: 0.055, angFromVx: 0.0016,
-    angFlutter : 6.2, angMax: 6.5, alignAir: 2.4,
+    angDrag    : 3.2, angResp: 0.03, angFromVx: 0.001,
+    angFlutter : 2.6, angMax: 5.5, alignAir: 2.2,
 
-    wallDamp   : 0.14, wallSlide: 0.86, wallSpin: 3.4
+    wallDamp   : 0.3, wallSlide: 0.92, wallSpin: 3
   },
 
   // Heavy, low-drag, carries momentum, rolls, bounces off walls.
@@ -368,26 +374,26 @@ const PROFILES = {
     label:'Football', art:'football', behavior:'ball', price:5,
     verb:'Guide', fell:'dropped out of the air',
 
-    len:24, wid:24, mass:3.40,
+    len:24, wid:24, mass:1.98,
 
-    gravity    : 0.88,   // falls fast when the air stops
-    lift       : 4.05,   // needs real air under it (divided by the big mass)
-    hMul       : 1.30,   // heavy, but it must answer the finger clearly
-    dragLin    : 0.75,   // slippery: momentum is kept
-    dragQuad   : 0.0040,
-    dragEdge   : 1.00,   // sphere — no preferred direction
-    airSpeed   : 620,    // once the air has hold of it, it really moves
-    center     : 1.80,   // the stream must keep hold of a heavy ball, or
+    gravity    : 0.87,   // falls fast when the air stops
+    lift       : 3.54,   // needs real air under it (divided by the big mass)
+    hMul       : 1.66,   // heavy, but it must answer the finger clearly
+    dragLin    : 0.7,   // slippery: momentum is kept
+    dragQuad   : 0.0045,
+    dragEdge   : 0.92,   // round: drag is the same from every direction
+    airSpeed   : 770,    // once the air has hold of it, it really moves
+    center     : 1.34,   // the stream must keep hold of a heavy ball, or
                          // sliding the blower simply abandons it mid-air
-    turb       : 0.05,
+    turb       : 0.03,
 
     flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
 
-    angDrag    : 1.2, angResp: 0, angFromVx: 0,
-    angFlutter : 0, angMax: 14, alignAir: 0,
+    angDrag    : 1.6, angResp: 0, angFromVx: 0,
+    angFlutter : 0, angMax: 10, alignAir: 0,
     spinRoll   : 0.016,  // rotation follows horizontal travel
 
-    wallDamp   : 0.68, wallSlide: 0.97, wallSpin: 6.0   // proper elastic bounce
+    wallDamp   : 0.6, wallSlide: 0.96, wallSpin: 5   // proper elastic bounce
   },
 
   // Very light, very responsive, lively, bounces hard. Not floaty.
@@ -395,25 +401,25 @@ const PROFILES = {
     label:'Ping-Pong', noun:'ping-pong ball', art:'pingpong', behavior:'ball', price:10,
     verb:'Guide', fell:'bounced out of the air',
 
-    len:15, wid:15, mass:0.35,
+    len:15, wid:15, mass:1.84,
 
-    gravity    : 0.78,   // drops properly — it is a ball, not a feather
-    lift       : 1.25,
-    hMul       : 1.55,   // lively without throwing itself off screen
-    dragLin    : 0.95,   // sheds speed quickly, but does not hang in the air
-    dragQuad   : 0.0055,
-    dragEdge   : 1.00,
-    airSpeed   : 1240,   // shoots up when it is sitting in the stream
-    center     : 0.75,
-    turb       : 0.18,   // a little twitchy
+    gravity    : 0.84,   // drops properly — it is a ball, not a feather
+    lift       : 3.68,
+    hMul       : 1.9,   // lively without throwing itself off screen
+    dragLin    : 0.68,   // sheds speed quickly, but does not hang in the air
+    dragQuad   : 0.0044,
+    dragEdge   : 0.9,   // round: drag is the same from every direction
+    airSpeed   : 800,   // shoots up when it is sitting in the stream
+    center     : 1.26,
+    turb       : 0.05,   // a little twitchy
 
     flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
 
-    angDrag    : 1.0, angResp: 0, angFromVx: 0,
-    angFlutter : 0, angMax: 18, alignAir: 0,
+    angDrag    : 1.3, angResp: 0, angFromVx: 0,
+    angFlutter : 0, angMax: 13, alignAir: 0,
     spinRoll   : 0.022,
 
-    wallDamp   : 0.82, wallSlide: 0.99, wallSpin: 8.0   // springy
+    wallDamp   : 0.72, wallSlide: 0.97, wallSpin: 6.5   // springy
   },
 
   // Almost weightless, enormous drag: safe vertically, slow to steer.
@@ -421,25 +427,25 @@ const PROFILES = {
     label:'Balloon', art:'balloon', behavior:'balloon', price:15,
     verb:'Guide', fell:'drifted out of the air',
 
-    len:27, wid:30, mass:0.45,
+    len:27, wid:30, mass:1.86,
 
-    gravity    : 0.22,   // barely falls
-    lift       : 0.39,
-    hMul       : 1.18,   // no longer sluggish; still the slow, floaty one
-    dragLin    : 2.55,   // huge surface area
-    dragQuad   : 0.0210,
-    dragEdge   : 0.95,   // near enough to round
-    airSpeed   : 815,    // still the slowest, but it gets somewhere
-    center     : 0.45,
-    turb       : 0.10,
+    gravity    : 0.81,   // barely falls
+    lift       : 3.64,
+    hMul       : 1.7,   // no longer sluggish; still the slow, floaty one
+    dragLin    : 0.76,   // huge surface area
+    dragQuad   : 0.005,
+    dragEdge   : 0.2,   // near enough to round
+    airSpeed   : 775,    // still the slowest, but it gets somewhere
+    center     : 1.31,
+    turb       : 0.04,
 
-    flutter    : 34, flutterFreq: 0.55, gustChance: 0.35, gustPower: 1.2,
+    flutter    : 30, flutterFreq: 0.55, gustChance: 0.22, gustPower: 0.6,
 
-    angDrag    : 2.2, angResp: 0, angFromVx: 0.0009,
-    angFlutter : 1.4, angMax: 3.0, alignAir: 0.8,
-    upright    : 5.5,    // rights itself — balloons hang the correct way up
+    angDrag    : 2.6, angResp: 0, angFromVx: 0.0008,
+    angFlutter : 0.9, angMax: 3.2, alignAir: 1,
+    upright    : 3.4,    // rights itself — balloons hang the correct way up
 
-    wallDamp   : 0.22, wallSlide: 0.95, wallSpin: 1.2   // squashy, no bounce
+    wallDamp   : 0.34, wallSlide: 0.94, wallSpin: 1.8   // squashy, no bounce
   },
 
   // Orientation matters: it glides, and a bad angle stalls it.
@@ -447,30 +453,30 @@ const PROFILES = {
     label:'Paper Plane', art:'plane', behavior:'plane', price:20,
     verb:'Guide', fell:'stalled and dropped away',
 
-    len:30, wid:13, mass:0.90,
+    len:30, wid:13, mass:1.88,
 
-    gravity    : 0.62,
-    lift       : 1.75,   // must be able to gain height, not just glide down
-    hMul       : 2.35,   // it slips sideways through air, so the jet needs
+    gravity    : 0.85,
+    lift       : 3.58,   // must be able to gain height, not just glide down
+    hMul       : 1.82,   // it slips sideways through air, so the jet needs
                          // more direct horizontal bite to steer it
-    dragLin    : 0.76,   // carries forward momentum further
-    dragQuad   : 0.0052,
-    dragEdge   : 0.22,   // slips forward, resists sideways -> it glides
-    airSpeed   : 870,
-    center     : 0.90,
-    turb       : 0.10,
+    dragLin    : 0.7,   // carries forward momentum further
+    dragQuad   : 0.0045,
+    dragEdge   : 0.15,   // slips forward, resists sideways -> it glides
+    airSpeed   : 785,
+    center     : 1.29,
+    turb       : 0.04,
 
     flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
 
-    angDrag    : 2.6, angResp: 0, angFromVx: 0,
-    angFlutter : 0, angMax: 5.0, alignAir: 0.6,
-    vane       : 1.40,   // noses toward its direction of travel...
-    level      : 4.00,   // ...but stays near horizontal, so it never goes
+    angDrag    : 3, angResp: 0, angFromVx: 0,
+    angFlutter : 0, angMax: 5.5, alignAir: 1,
+    vane       : 3.2,   // noses toward its direction of travel...
+    level      : 2.6,   // ...but stays near horizontal, so it never goes
                          //    nose-vertical during a climb. The balance of
                          //    these two IS the glide angle.
-    jetPitch   : 2.00,   // the airstream pitches it over — the player's lever
+    jetPitch   : 1.1,   // the airstream pitches it over — the player's lever
 
-    wallDamp   : 0.38, wallSlide: 0.90, wallSpin: 3.0
+    wallDamp   : 0.42, wallSlide: 0.93, wallSpin: 3
   },
 
   // Streamlined dart. No engine — the blower is still the only thrust.
@@ -479,23 +485,23 @@ const PROFILES = {
     label:'Toy Rocket', art:'rocket', behavior:'rocket', price:25,
     verb:'Guide', fell:'dropped out of the air',
 
-    len:28, wid:11, mass:1.90,
+    len:28, wid:11, mass:1.9,
 
     gravity    : 0.85,   // sinks fast once the air is gone
-    lift       : 3.60,   // superb climb rate while lined up in the stream
+    lift       : 3.6,   // superb climb rate while lined up in the stream
     hMul       : 1.75,   // nose-on it is very slippery sideways; compensate
-    dragLin    : 0.70,
+    dragLin    : 0.7,
     dragQuad   : 0.0045,
-    dragEdge   : 0.10,   // extremely streamlined along its axis
+    dragEdge   : 0.14,   // extremely streamlined along its axis
     airSpeed   : 780,    // rides the stream fast when lined up
-    center     : 1.30,   // strongly held by the middle of the stream
+    center     : 1.3,   // strongly held by the middle of the stream
     turb       : 0.04,
 
     flutter    : 0, flutterFreq: 1, gustChance: 0, gustPower: 0,
 
     angDrag    : 4.2, angResp: 0, angFromVx: 0,
-    angFlutter : 0, angMax: 6.0, alignAir: 1.5,
-    vane       : 6.50,   // locks onto its flight direction
+    angFlutter : 0, angMax: 6, alignAir: 1.5,
+    vane       : 6.5,   // locks onto its flight direction
 
     wallDamp   : 0.45, wallSlide: 0.94, wallSpin: 2.5
   }
@@ -529,8 +535,8 @@ function tune(){
   P.camUp      = 3.4;
   P.camDown    = 1.5;
   P.camSlack   = H * 0.30;
-  P.gapMin     = H * 0.30;
-  P.gapMax     = H * 0.40;
+  P.gapMin     = H * 0.34;     // TIGHT by default: rings sit close together
+  P.gapMax     = H * 0.46;     //   until the score ramp starts opening them up
   P.hoopDrift  = 0.40;          // horizontal variation between hoops (x W)
   P.coneNow    = P.coneBase;    // live cone, widened by Calm Air
   P.spreadNow  = P.spread;
@@ -726,11 +732,11 @@ const Snd = {
 //  STATE
 // ===================================================================
 const RUN = {fuel:100, passed:0, launched:false, pace:1.08, lowWarned:false};
-const FUEL = {burn:6.7, refill:35, low:22};  // ~15 s of continuous airflow on a full
-                                            //   tank. A ring gives back LESS than a lap
-                                            //   costs at full power, so holding the
-                                            //   screen down can no longer sustain itself.
-let normalRingsToFuel = 8;
+const FUEL = {burn:24, refill:25, low:35};
+// The whole loop in three numbers. A ring is worth +25. Rings arrive about
+// every 1.4 s, so holding the airflow down costs ~23 between them: passing
+// them keeps you level, gliding puts you ahead, and missing four in a row
+// empties the tank. Fuel burns in real seconds, never per frame.
 function targetPace(n){return 1.08 + .52 * Math.min(n / 12, 1)}
 function stepRun(dt){
   RUN.pace+=(targetPace(RUN.passed)-RUN.pace)*(1-Math.exp(-dt*2.2));
@@ -738,9 +744,9 @@ function stepRun(dt){
   // Auto Flight runs on its own tank, so the player's fuel is untouched.
   if(air.down && RUN.fuel>0 && calm.t<=0) RUN.fuel=Math.max(0,RUN.fuel-dt*FUEL.burn*(.3+.7*air.pressure));
   if(RUN.fuel<=0 && calm.t<=0) air.pressure=0;
-  if(RUN.fuel<=FUEL.low && !RUN.lowWarned){RUN.lowWarned=true;notice('Yakıt azalıyor · ⛽ altın halkayı hedefle');haptic([24,40,24]);Snd.blip(261.63,.5,'sine',.07)}
+  if(RUN.fuel<=FUEL.low && !RUN.lowWarned){RUN.lowWarned=true;notice('Yakıt azalıyor · halkalardan geç');haptic([24,40,24]);Snd.blip(261.63,.5,'sine',.07)}
 }
-let lastFuelUI='', noticeTimer=0, fuelFullTimer=0;
+let lastFuelUI='', noticeTimer=0;
 // Looked up once: this runs on every frame that the gauge actually moves.
 const elFuelVal   = document.getElementById('fuelVal');
 const elFuelFill  = document.getElementById('fuelFill');
@@ -754,14 +760,6 @@ function updateRunHUD(){
   elFuelFill.style.transform='scaleX('+RUN.fuel/100+')';
   elFuelMeter.setAttribute('aria-valuenow',String(value));
   elFuelHUD.classList.toggle('low',value<=FUEL.low);
-}
-// A short gold pulse on the gauge when a golden ring fills the tank.
-function fuelFullFlash(){
-  elFuelHUD.classList.remove('full');
-  void elFuelHUD.offsetWidth;                 // restart the CSS animation
-  elFuelHUD.classList.add('full');
-  clearTimeout(fuelFullTimer);
-  fuelFullTimer=setTimeout(()=>elFuelHUD.classList.remove('full'),600);
 }
 function notice(text){elNotice.textContent=text;elNotice.classList.add('on');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>elNotice.classList.remove('on'),4500)}
 let state = 'ready';                       // ready | play | over
@@ -1022,7 +1020,6 @@ function reset(){
   air.baseX = W * 0.5; air.px = W * 0.5; air.py = H * 0.8;
   hoops = []; parts = []; pops = []; coins = []; orbs = []; meteors = [];
   score = 0; combo = 0; hoopId = 0; tSec = 0;
-  normalRingsToFuel = 8 + Math.floor(Math.random() * 3);
   airAcc = 0;
   runCoins = 0; lastCoinY = 0;
   calm.t = 0; gatesToOrb = Math.round(rnd(CALM.every[0], CALM.every[1]));
@@ -1031,56 +1028,97 @@ function reset(){
   spawnY = obj.y - H * 0.34;
   while (spawnY > cam.y - H * 1.1) addHoop();
   uiScore.textContent = '0';
-  showCombo(false);
+  showCombo(0);
 }
+
+// ===================================================================
+//  DIFFICULTY RAMP
+//  ------------------------------------------------------------------
+//  One number drives everything that gets harder, and it is driven by
+//  SCORE, not by time: prog is 0 until DIFF.from points, then climbs to 1
+//  at DIFF.to. Every term below is a plain lerp between an easy value and
+//  a hard one, and every hard value is deliberately still playable — the
+//  run gets busier and wider, never impossible.
+//
+//    ring gap      +0%  ->  +26%      (more air between rings)
+//    meteors       every 6-9 rings -> every 3-5
+//    rings moving  18%  ->  70%       (a few at first, most later)
+//    rocks moving  30%  ->  100%
+// ===================================================================
+const DIFF = {
+  from: 1000, to: 5000,
+  gap      : 0.95,            // spacing nearly doubles across the ramp
+  fuelGain : 0.30,            // see below
+  metEvery : [[10, 14], [2, 4]],
+  ringMove : [0.00, 0.70],    // NOTHING sweeps before the ramp starts
+  // --- second tier, from 2000 points ---------------------------------
+  fastFrom : 2000, fastTo : 5000,
+  ringFast : [0.00, 0.35],    // share of rings on the WIDE, QUICK sweep
+  ringFastAmp : 0.13,         // x screen width
+  ringFastSpd : [0.70, 0.95], // vs 0.22-0.40 for the gentle drift
+  rockMove : [0.00, 1.00],    // rocks only start moving in this tier
+  rockSpd  : [0.55, 0.75],    // ~60% of a fast ring's lateral speed
+  // --- third tier, from 3000 points ----------------------------------
+  bigFrom  : 3000, bigTo : 4500,
+  rockBig  : [0.00, 0.40],    // share of rocks that come in oversized
+  rockBigScale : 1.32         // +32%: clearly chunkier, still easy to fly around
+};
+// Second and third difficulty tiers. Each is its own clamped 0..1 ramp, so
+// a tier contributes exactly nothing until its own threshold is reached.
+function progress2(){ return clamp((score - DIFF.fastFrom) / (DIFF.fastTo - DIFF.fastFrom), 0, 1); }
+function progress3(){ return clamp((score - DIFF.bigFrom)  / (DIFF.bigTo  - DIFF.bigFrom),  0, 1); }
+// Widening the gaps means more seconds of airflow between refills, so the
+// reward per ring has to widen with it. Without this the ramp quietly turns
+// into a death timer: a pilot who passes EVERY ring still runs dry, which is
+// not difficulty, it is an unwinnable board. The margin still narrows with
+// the ramp — it just never goes negative.
+function ringFuel(){ return FUEL.refill * (1 + DIFF.fuelGain * progress()); }
+function progress(){
+  return clamp((score - DIFF.from) / (DIFF.to - DIFF.from), 0, 1);
+}
+const lerp = (a, b, t) => a + (b - a) * t;
 
 // The pass opening is unchanged; rings just gain an occasional slow drift.
 function addHoop(){
+  const prog = progress();
   const diff = Math.min(hoopId / 30, 1);                 // very gentle ramp
-  const isFuel = normalRingsToFuel === 0;
-  if (isFuel) normalRingsToFuel = 8 + Math.floor(Math.random() * 3);
-  else normalRingsToFuel--;
-  // The golden ring is the tightest opening in the game — it is also the one
-  // that keeps you alive, so hitting it has to be an actual piece of flying.
-  const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff)) * (isFuel ? 0.82 : 1);
+  const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff));
   const prev = hoops.length ? hoops[hoops.length - 1].x : W * 0.5;
   const drift = W * P.hoopDrift;
   // Reserve the swing room BEFORE clamping, so a gate near a wall still gets
   // a real amplitude instead of being flattened to 0.
-  //   * a golden fuel ring ALWAYS sweeps, and further — it is the most
-  //     valuable ring in the game, so it should have to be timed
-  //   * ~18% of ordinary gates drift, gently, as before
+  //   The SHARE of gates that sweep grows with the ramp; the sweep itself
+  //   stays the same gentle size, so later rings are busier, not wilder.
   const edge = rx + 14 * S;
   const room = Math.max(0, (W - edge * 2) * 0.5 - 4 * S);
-  let amp = 0;
-  // A narrower sweep than before, on purpose: the wide one ate so much of the
-  // playfield that every golden ring ended up passing through the middle.
-  if (isFuel) amp = Math.min(W * 0.10, room);
-  else if (Math.random() < 0.18) amp = Math.min(W * 0.085, room);
-  const lo = edge + amp, hi = W - edge - amp;
-  let x;
-  if (isFuel){
-    // Mostly parked out on one side or the other so reaching it means crossing
-    // the screen; roughly a quarter of them still sit near the middle.
-    if (Math.random() < 0.25) x = clamp(W * 0.5 + rnd(-1, 1) * W * 0.06, lo, hi);
-    else if (Math.random() < 0.5) x = clamp(lo + Math.random() * W * 0.03, lo, hi);
-    else                         x = clamp(hi - Math.random() * W * 0.03, lo, hi);
-  } else {
-    x = clamp(prev + rnd(-drift, drift), lo, hi);
+  // Two tiers of movement, drawn from ONE roll so a ring is never both.
+  // The gentle drift is the old behaviour; from 2000 points a growing share
+  // of rings instead get a wide, quick sweep. Its peak lateral speed is
+  // about a fifth of what the player can do, so it always stays catchable.
+  const p2 = progress2();
+  let amp = 0, driftSpd = rnd(0.22, 0.40);
+  const roll = Math.random();
+  const fastShare = lerp(DIFF.ringFast[0], DIFF.ringFast[1], p2);
+  const slowShare = lerp(DIFF.ringMove[0], DIFF.ringMove[1], prog);
+  if (roll < fastShare){
+    amp = Math.min(W * DIFF.ringFastAmp, room);
+    driftSpd = rnd(DIFF.ringFastSpd[0], DIFF.ringFastSpd[1]);
+  } else if (roll < fastShare + slowShare){
+    amp = Math.min(W * 0.085, room);
   }
+  const lo = edge + amp, hi = W - edge - amp;
+  const x = clamp(prev + rnd(-drift, drift), lo, hi);
 
   hoops.push({
-    id: hoopId++, fuel:isFuel, x, homeX: x, y: spawnY, rx, ry: rx * 0.30,
+    id: hoopId++, x, homeX: x, y: spawnY, rx, ry: rx * 0.30,
     done: false, missed: false, pulse: 0, glow: 0,
-    seed: Math.random() * 6.2832, pal: isFuel ? 'fuel' : pickRingPal(),
-    // A fuel ring sweeps ~30% quicker than a drifting ordinary one — enough
-    // to read as alive and to need lining up, never enough to dart away.
-    amp, driftSpd: isFuel ? rnd(0.32, 0.49) : rnd(0.22, 0.40), flash: 0
+    seed: Math.random() * 6.2832, pal: pickRingPal(),
+    amp, driftSpd, flash: 0
   });
   if (hoops.length >= 2) maybeSpawnCoins(hoops[hoops.length - 2], hoops[hoops.length - 1], diff);
   maybeSpawnOrb(hoops[hoops.length - 1]);
   if (hoops.length >= 2) maybeSpawnMeteor(hoops[hoops.length - 2], hoops[hoops.length - 1]);
-  spawnY -= rnd(P.gapMin, P.gapMax) * (1 + 0.16 * diff);
+  spawnY -= rnd(P.gapMin, P.gapMax) * (1 + DIFF.gap * prog);
 }
 
 function startGame(){
@@ -1108,7 +1146,7 @@ function gameOver(){
   document.getElementById('flightHint').style.opacity=0;
   Snd.dead();
   Snd.wind(0, 0);
-  if(RUN.fuel<=0)document.getElementById('ovFell').textContent='Yakıt tükendi. Bir sonraki uçuşta altın halkaları hedefle.';
+  if(RUN.fuel<=0)document.getElementById('ovFell').textContent='Yakıt tükendi. Halkaları kaçırma; her halka depoyu doldurur.';
   if (score > best){
     best = score;
     try { localStorage.setItem('airlift_best', String(best)); } catch(e){}
@@ -1119,13 +1157,18 @@ function gameOver(){
   document.getElementById('ovCoins').textContent = '+' + runCoins;
   document.getElementById('ovCoinTotal').textContent = totalCoins;
   document.getElementById('overScreen').classList.add('on');
-  showCombo(false);
+  showCombo(0);
 }
 
-let comboTimer = 0;
-function showCombo(on, n){
-  if (on){ comboTag.textContent = 'COMBO x' + n; comboTag.classList.add('on'); comboTimer = 1.4; }
-  else   { comboTag.classList.remove('on'); comboTimer = 0; }
+// Fires again on EVERY consecutive ring: the animation is restarted so the
+// number pops fresh each time, then fades and drifts up on its own. The CSS
+// owns the timing, so nothing has to be ticked per frame.
+function showCombo(n){
+  if (!n){ comboTag.classList.remove('show'); return; }
+  comboTag.textContent = 'COMBO ' + n;
+  comboTag.classList.remove('show');
+  void comboTag.offsetWidth;                 // restart the animation
+  comboTag.classList.add('show');
 }
 
 // ===================================================================
@@ -1648,7 +1691,7 @@ function hoopLogic(){
     if (!h.done && !h.missed && obj.y < h.y - 30 * S){
       h.missed = true;
       haptic(14);                                   // a small nudge: that one got away
-      if (combo > 0){ combo = 0; showCombo(false); }
+      if (combo > 0){ combo = 0; showCombo(0); }
     }
     if (h.amp) h.x = h.homeX + Math.sin(tSec * h.driftSpd + h.seed) * h.amp;
     h.pulse *= 0.90;
@@ -1663,15 +1706,12 @@ function hoopLogic(){
 
 function onPass(h, offRatio){
   RUN.passed++;
-  if(h.fuel){
-    // A golden ring is worth half a tank, added to whatever is left. It is
-    // a lifeline, not a reset: a full lap still has to be planned.
-    const gained = Math.min(FUEL.refill, 100 - RUN.fuel);
-    RUN.fuel = Math.min(100, RUN.fuel + FUEL.refill);
-    RUN.lowWarned = RUN.fuel <= FUEL.low;
-    pops.push({x:h.x,y:h.y-44*S,t:0,txt:'+%'+Math.round(gained),big:true,gold:true});
-    burst(h.x,h.y,26,'gold',.8);Snd.refuel();haptic([18,26,34]);fuelFullFlash();
-  }
+  // EVERY ring feeds the tank now — the route itself is the fuel supply.
+  const reward = ringFuel();
+  const gained = Math.min(reward, 100 - RUN.fuel);
+  RUN.fuel = Math.min(100, RUN.fuel + reward);
+  RUN.lowWarned = RUN.fuel <= FUEL.low;
+  if (gained > 0.5) pops.push({x:h.x, y:h.y - 40*S, t:0, txt:'+%'+Math.round(gained), big:false, gold:true});
   updateRunHUD();
   combo++;
   const bonus = Math.min(combo, 10);
@@ -1682,7 +1722,7 @@ function onPass(h, offRatio){
   Snd.pass(combo, centred);
   // Every ring is felt, and none of it outstays its welcome: one short tick
   // for a normal pass, a quick double for a perfect one.
-  if(!h.fuel) haptic(centred ? [12,24,20] : 16);
+  haptic(centred ? [12,24,20] : 16);
   h.flash = centred ? 1 : 0.42;                  // ring glows, brighter if perfect
   burst(h.x, h.y, centred ? 48 : 28, centred ? 'perfect' : 'blue', centred ? 1.25 : 1);
   if (centred){
@@ -1691,7 +1731,7 @@ function onPass(h, offRatio){
   } else {
     pops.push({ x:h.x, y:h.y, t:0, txt:'+' + pts, big:false });
   }
-  if (combo >= 2) showCombo(true, combo);
+  showCombo(combo);
 }
 
 // ===================================================================
@@ -2084,7 +2124,7 @@ function drawOrbs(cy){
 //  The one hazard in the game. A meteor never kills: touching one makes
 //  the blower sputter for a moment, so the cost of a hit is a short loss
 //  of lift, not the run. They sit in the GAP between rings, never in a
-//  ring opening, and never where a fuel ring or an Auto Flight orb is.
+//  ring opening, and never where an Auto Flight orb is.
 // ===================================================================
 const METEOR = {
   r        : 19,      // rock radius (px @ 720p ref) — big enough to matter
@@ -2109,12 +2149,14 @@ function rockShape(){
 function maybeSpawnMeteor(prev, gate){
   if (hoopId < METEOR.firstAt) return;
   if (--gatesToMeteor > 0) return;
-  gatesToMeteor = Math.round(rnd(METEOR.every[0], METEOR.every[1]));
+  const prog = progress();
+  // Rocks arrive roughly twice as often once the ramp is done.
+  const lo = lerp(DIFF.metEvery[0][0], DIFF.metEvery[1][0], prog);
+  const hi = lerp(DIFF.metEvery[0][1], DIFF.metEvery[1][1], prog);
+  gatesToMeteor = Math.max(2, Math.round(rnd(lo, hi)));
   // A fairness skip must not burn the opportunity, or the real spacing
   // drifts well past the intended 6-9 rings. Retry at the very next ring.
   const retry = () => { gatesToMeteor = 1; };
-  // never in the approach to a fuel ring: that lane has to stay clean
-  if (gate.fuel || prev.fuel) return retry();
 
   const gap = prev.y - gate.y;                       // gate is above prev
   const clear = H * METEOR.clearY;
@@ -2125,11 +2167,22 @@ function maybeSpawnMeteor(prev, gate){
   // route is never blocked outright — it is a thing to steer around
   const t = clamp((prev.y - y) / gap, 0, 1);
   const lane = prev.x + (gate.x - prev.x) * t;
+  // From the third tier a share of rocks come in oversized. Size is chosen
+  // FIRST because everything below reserves clearance around it.
+  const p3 = progress3();
+  const scale = Math.random() < lerp(DIFF.rockBig[0], DIFF.rockBig[1], p3)
+              ? DIFF.rockBigScale : 1;
   // Reserve the swing room BEFORE clamping, or the sweep carries the rock
   // through the wall at its extremes.
-  const pad = (METEOR.edgePad + METEOR.r) * S;
+  const pad = (METEOR.edgePad + METEOR.r * scale) * S;
   const room = Math.max(0, (W - pad * 2) * 0.5 - 4 * S);
-  const amp = Math.min(W * METEOR.amp, room);
+  // Rocks start moving at the second tier and sweep more slowly than a fast
+  // ring, so the two hazards never read as the same thing.
+  const p2 = progress2();
+  const moves = Math.random() < lerp(DIFF.rockMove[0], DIFF.rockMove[1], p2);
+  const amp = moves ? Math.min(W * METEOR.amp, room) : 0;
+  const spd = rnd(lerp(METEOR.spd[0], DIFF.rockSpd[0], p2),
+                  lerp(METEOR.spd[1], DIFF.rockSpd[1], p2));
   const side = Math.random() < 0.5 ? -1 : 1;
   const off = gate.rx * rnd(0.55, 1.15) * side;
   const x = clamp(lane + off, pad + amp, W - pad - amp);
@@ -2137,12 +2190,12 @@ function maybeSpawnMeteor(prev, gate){
   // and never on top of an Auto Flight orb
   for (let i = 0; i < orbs.length; i++){
     const o = orbs[i];
-    if (Math.abs(o.y - y) < H * 0.09 && Math.abs(o.x - x) < (CALM.r + METEOR.r + 26) * S) return retry();
+    if (Math.abs(o.y - y) < H * 0.09 && Math.abs(o.x - x) < (CALM.r + METEOR.r * scale + 26) * S) return retry();
   }
 
   meteors.push({
     x, homeX: x, y, amp,
-    spd: rnd(METEOR.spd[0], METEOR.spd[1]),
+    spd, scale,
     seed: Math.random() * 6.2832,
     spin: rnd(-0.5, 0.5),
     ang: Math.random() * 6.2832,
@@ -2154,12 +2207,12 @@ function maybeSpawnMeteor(prev, gate){
 // Same forgiving ellipse test the coins and orbs use.
 function meteorLogic(dt){
   const ca = Math.cos(obj.ang), sa = Math.sin(obj.ang);
-  const mr = METEOR.r * S;
-  const ra = P.objLen * 0.85 + mr;
-  const rn = P.objWid * METEOR.grab + mr;
   for (let i = 0; i < meteors.length; i++){
     const m = meteors[i];
     if (m.hit > 0){ m.hit -= dt; continue; }
+    const mr = METEOR.r * (m.scale || 1) * S;      // oversized rocks hit sooner
+    const ra = P.objLen * 0.85 + mr;
+    const rn = P.objWid * METEOR.grab + mr;
     // the Auto Flight bubble shields the object: a hit there would fight
     // the very thing the power-up promises
     if (calm.t > 0 || sputter.immune > 0) continue;
@@ -2176,6 +2229,7 @@ function hitMeteor(m){
   sputter.t = SPUTTER.dur;
   sputter.immune = SPUTTER.immune;
   burst(m.x, m.y, 16, 'ember', 0.95);
+  if (combo > 0){ combo = 0; showCombo(0); }   // a hit breaks the chain
   Snd.clunk();
   haptic([18,30,22]);
 }
@@ -2200,9 +2254,9 @@ function stepMeteors(dt){
 }
 
 function drawMeteors(cy){
-  const mr = METEOR.r * S;
   for (let i = 0; i < meteors.length; i++){
     const m = meteors[i];
+    const mr = METEOR.r * (m.scale || 1) * S;
     const y = m.y - cy;
     if (y < -60 * S || y > H + 60 * S) continue;
     ctx.save();
@@ -2470,7 +2524,6 @@ function draw(){
 // -------------------------------------------------------------------
 // Four curated pastel families — designed, not random RGB.
 const RING_PAL = {
-  fuel:{lite:[255,245,186],mid:[255,192,69],deep:[210,123,27],rim:'182,105,22'},
   coral: { lite:[255,228,214], mid:[255,168,142], deep:[233,122,101], rim:'198,96,80'  },
   lilac: { lite:[238,229,255], mid:[188,168,242], deep:[147,125,210], rim:'120,100,182' },
   mint:  { lite:[221,250,237], mid:[138,227,191], deep:[ 82,192,152], rim:'58,150,120'  },
@@ -2567,13 +2620,6 @@ function paintHoop(h, cy, back, ctx = mainContext, cached = false){
 
   ctx.save();
   ctx.translate(h.x, sy);
-  if(h.fuel && !back){
-    ctx.save();ctx.shadowColor='#ffbe55';ctx.shadowBlur=12*S;
-    ctx.strokeStyle=h.done?'#b6f4c9':'#ffdf8c';ctx.lineWidth=2*S;
-    ctx.setLineDash([6*S,5*S]);ctx.beginPath();ctx.ellipse(0,0,rx+9*S,ry+7*S,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-    const by=-ry-40*S;ctx.fillStyle='#342c1a';roundRect(-65*S,by,130*S,25*S,9*S,ctx);ctx.fill();ctx.stroke();
-    ctx.shadowBlur=0;ctx.fillStyle=h.done?'#b6f4c9':'#ffe8a4';ctx.font='800 '+(12*S)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.done?'⛽ ALINDI':'⛽ YAKIT +%35',0,by+12*S);ctx.restore();
-  }
   ctx.lineCap = 'round';
   ctx.shadowColor=sk.mid;ctx.shadowBlur=10*S;
 
@@ -3147,10 +3193,6 @@ function frame(now){
     if (guard >= 4) acc %= STEP;
     stepParts(dt);
     Snd.wind(air.pressure, air.tilt);
-    if (comboTimer > 0){
-      comboTimer -= dt;
-      if (comboTimer <= 0) showCombo(false);
-    }
   } else {
     if(state !== 'paused') { stepParts(dt); tSec += dt; }
     acc = 0;
