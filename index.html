@@ -174,7 +174,10 @@
   html,body{background:#081c30;color:#e8f7f4}
   .pill,#coinPill{background:rgba(8,27,44,.78);border:1px solid #a6f7e126;box-shadow:0 8px 25px #0002;border-radius:14px}
   .lbl{color:#a9c8ca;opacity:1;font-size:9px;letter-spacing:.18em}.val{color:#effff6}
-  .screen{background:linear-gradient(180deg,#06162420,#061624aa);padding:18px;overflow:auto;touch-action:pan-y}
+  /* above the fixed corner buttons (z-index 5) so a tall card is never
+     overlapped by them on short screens; the transparent area keeps
+     pointer-events:none, so the buttons stay clickable around the card */
+  .screen{background:linear-gradient(180deg,#06162420,#061624aa);padding:18px;overflow:auto;touch-action:pan-y;z-index:6}
   .card{background:linear-gradient(145deg,#122e40f5,#0b1e30f7);border:1px solid #b7ffdf35;box-shadow:0 24px 90px #0006;border-radius:28px;padding:28px 24px;color:#effcf8;max-height:calc(100dvh - 42px);overflow:auto;touch-action:pan-y}
   .title{font-size:46px;letter-spacing:.12em;font-weight:800}.sub{color:#b3ced0;opacity:1;font-size:13px;line-height:1.8}
   .edition{font-size:10px;letter-spacing:.3em;color:#9ef3d1;margin:0 0 12px}
@@ -267,9 +270,17 @@ const REF_H = 720;
 
 function resize(){
   const oldW=W, oldH=H;
-  if (typeof pauseGame === 'function' && W > 0) pauseGame();
+  const newW = cv.clientWidth, newH = cv.clientHeight;
+  if (!newW || !newH) return;                 // hidden / zero-size: nothing to do
+  if (newW === oldW && newH === oldH) return; // spurious resize event
+  // Mobile browsers fire `resize` every time the address bar slides away, so
+  // pausing on any change would interrupt the run constantly. Only a real
+  // layout change (rotation, window resize) pauses.
+  const major = oldW > 0 &&
+    (Math.abs(newW - oldW) > oldW * 0.02 || Math.abs(newH - oldH) > oldH * 0.22);
+  if (major && typeof pauseGame === 'function') pauseGame();
   DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = cv.clientWidth; H = cv.clientHeight;
+  W = newW; H = newH;
   cv.width  = Math.round(W * DPR);
   cv.height = Math.round(H * DPR);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -598,29 +609,29 @@ const Snd = {
     this.windFilter.frequency.setTargetAtTime(
       280 + pressure*400 + Math.abs(tilt)*100, this.ac.currentTime, 0.08);
   },
-  blip(freq, dur, type, vol){
+  blip(freq, dur, type, vol, delay){
     if (!this.ready || !this.on) return;
-    const t = this.ac.currentTime;
+    const t = this.ac.currentTime + (delay || 0);
     const o = this.ac.createOscillator();
     const g = this.ac.createGain();
     o.type = type || 'sine';
     o.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.018);
+    g.gain.linearRampToValueAtTime(vol, t + 0.022);   // a touch softer than a click
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g).connect(this.master);
     o.start(t); o.stop(t + dur + 0.02);
   },
+  // A warm little bell. The pitch still climbs with the combo, but only
+  // across a fifth and over five steps, so a long chain never turns shrill —
+  // and the partial above it is a clean octave instead of a harsh harmonic.
   pass(combo, perfect){
-    const step = Math.min(combo - 1, 9);
-    const scale=[0,2,4,7,9,12,14,16,19,21];
-    const f = 392 * Math.pow(2, scale[step] / 12);
-    this.blip(f, 0.46, 'sine', 0.16);
-    this.blip(f * 1.5, 0.38, 'sine', 0.045);
-    if (combo >= 3) this.blip(f * 3, 0.16, 'sine', 0.05);
-    if (perfect){                       // a brighter third on top
-      this.blip(f * 2, 0.26, 'triangle', 0.10);
-      this.blip(f * 2.5, 0.20, 'sine', 0.07);
+    const scale = [0, 2, 3, 5, 7];
+    const f = 293.66 * Math.pow(2, scale[Math.min(combo - 1, scale.length - 1)] / 12);
+    this.blip(f,       0.52, 'sine', 0.15);
+    this.blip(f * 2,   0.34, 'sine', 0.045, 0.045);   // octave, a hair later: reads as a bell
+    if (perfect){                       // a soft fifth on top, not a brighter edge
+      this.blip(f * 3, 0.28, 'sine', 0.055, 0.085);
     }
   },
   bump(v){ this.blip(150 + v*40, 0.09, 'sine', Math.min(0.12, 0.02 + v*0.05)); },
@@ -693,21 +704,15 @@ const Snd = {
 // ===================================================================
 //  STATE
 // ===================================================================
-<<<<<<< HEAD
 const RUN = {fuel:100, passed:0, launched:false, pace:.95, lowWarned:false};
-const FUEL = {burn:2.2, refill:45, low:22};
+const FUEL = {burn:4.1, refill:45, low:22};
 function targetPace(n){return .95 + .50 * Math.min(n / 12, 1)}
 function stepRun(dt){
   RUN.pace+=(targetPace(RUN.passed)-RUN.pace)*(1-Math.exp(-dt*2.2));
-=======
-const RUN = {fuel:100, passed:0, launched:false, pace:.68, lowWarned:false};
-const FUEL = {burn:2.2, refill:45, low:22};
-function targetPace(n){return .68 + .42 * Math.min(n / 18, 1)}
-function stepRun(dt){
-  RUN.pace+=(targetPace(RUN.passed)-RUN.pace)*(1-Math.exp(-dt*1.6));
->>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
-  if(air.down && RUN.fuel>0) RUN.fuel=Math.max(0,RUN.fuel-dt*FUEL.burn*(.3+.7*air.pressure));
-  if(RUN.fuel<=0) air.pressure=0;
+  // Calm Air is a breather: the autopilot flies on its own tank, so the
+  // player's fuel is untouched for as long as it lasts.
+  if(air.down && RUN.fuel>0 && calm.t<=0) RUN.fuel=Math.max(0,RUN.fuel-dt*FUEL.burn*(.3+.7*air.pressure));
+  if(RUN.fuel<=0 && calm.t<=0) air.pressure=0;
   if(RUN.fuel<=FUEL.low && !RUN.lowWarned){RUN.lowWarned=true;notice('Yakıt azalıyor · ⛽ altın halkayı hedefle');haptic([45,65,45]);Snd.blip(261.63,.5,'sine',.07)}
 }
 let lastFuelUI='', noticeTimer=0;
@@ -719,11 +724,7 @@ function updateRunHUD(){
   document.getElementById('fuelMeter').setAttribute('aria-valuenow',String(value));
   document.getElementById('fuelHUD').classList.toggle('low',value<=FUEL.low);
   document.getElementById('fuelStatus').textContent=value===0?'MOTOR DURDU · Yakıt gerekiyor':value<=FUEL.low?'AZ YAKIT · ⛽ halkayı hedefle':'⛽ Altın halka +%45';
-<<<<<<< HEAD
   document.getElementById('paceVal').textContent=RUN.passed>=12?'5 / 5 · SABİT':(1+Math.floor(Math.min(RUN.passed,11)/3))+' / 5';
-=======
-  document.getElementById('paceVal').textContent=RUN.passed>=18?'5 / 5 · SABİT':(1+Math.floor(Math.min(RUN.passed,17)/4.5))+' / 5';
->>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   document.getElementById('gateVal').textContent=RUN.passed+' HALKA';
 }
 function notice(text){const n=document.getElementById('notice');n.textContent=text;n.classList.add('on');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.classList.remove('on'),4500)}
@@ -969,11 +970,7 @@ function buildBackdrop(){
 //  GAME FLOW
 // ===================================================================
 function reset(){
-<<<<<<< HEAD
   RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=.95;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
-=======
-  RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=.68;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
->>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   cam.y = 0; cam.top = 0;
   obj.x = W * 0.5;  obj.y = H * 0.58;  obj.py = obj.y;
   obj.vx = 0; obj.vy = -40 * S;
@@ -996,7 +993,7 @@ function reset(){
 // The pass opening is unchanged; rings just gain an occasional slow drift.
 function addHoop(){
   const diff = Math.min(hoopId / 30, 1);                 // very gentle ramp
-  const isFuel = hoopId % 3 === 1;
+  const isFuel = hoopId % 4 === 1;      // rarer than before: refuelling is a plan, not a given
   const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff)) * (isFuel ? 1.10 : 1);   // ~15% smaller than before
   const prev = hoops.length ? hoops[hoops.length - 1].x : W * 0.5;
   const drift = W * P.hoopDrift;
@@ -1229,14 +1226,24 @@ function updateJet(dt){
   // It also refuses to abandon the object: the further the object has
   // strayed from the finger, the more the slide target is pulled back
   // toward it, so the stream stays catchable instead of flying off alone.
+  //
+  // Calm Air hands the controls over: the blower aims itself at the next
+  // ring and holds full pressure, so the player can lift their finger and
+  // watch for a few seconds. Nothing else in the simulation changes — the
+  // autopilot only writes the same inputs a finger would.
+  const auto = calm.t > 0;
   let want = air.px;
-  if (RUN.launched){
+  if (auto){
+    const gate = nextGate();
+    want = gate ? gate.x : obj.x;
+  } else if (RUN.launched){
     const stray = clamp(Math.abs(obj.x - air.px) / (W * 0.32), 0, 1);
     want += (obj.x - air.px) * P.assist * stray;
   }
   const targetX = clamp(want, 26 * S, W - 26 * S);
-  if (air.down){
-    let dx = (targetX - air.baseX) * (1 - Math.exp(-dt * P.baseFollow));
+  if (air.down || auto){
+    const follow = auto ? P.baseFollow * 1.5 : P.baseFollow;   // the autopilot tracks tighter
+    let dx = (targetX - air.baseX) * (1 - Math.exp(-dt * follow));
     const maxStep = P.baseSpeed * dt;
     air.baseX += clamp(dx, -maxStep, maxStep);
   }
@@ -1246,11 +1253,12 @@ function updateJet(dt){
   // It is a smaller lean than before on purpose: the heavy lifting of
   // steering is now done by the beam tracking your finger and by the
   // stream (P.center) holding on to whatever is riding in it.
-  air.tiltRaw = air.down ? clamp((air.px - air.baseX) / P.tiltRef, -1, 1) * P.tiltMax : 0;
+  // The autopilot keeps the beam upright; only a real finger leans it.
+  air.tiltRaw = (air.down && !auto) ? clamp((air.px - air.baseX) / P.tiltRef, -1, 1) * P.tiltMax : 0;
   air.tilt += (air.tiltRaw - air.tilt) * (1 - Math.exp(-dt * 11));
 
   // pressure: quick attack, quicker fade-out (never an instant cut)
-  if (air.down && RUN.fuel>0) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
+  if (auto || (air.down && RUN.fuel>0)) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
   else          air.pressure *= Math.exp(-dt * P.release);
   if (air.pressure < 0.0005) air.pressure = 0;
 
@@ -1421,11 +1429,13 @@ function physics(dt){
   // Gain is state-driven, not a fixed animation: strongest when drifting
   // slowly in calm air, weakest when pinned in the middle of the stream.
   const sp = Math.hypot(obj.vx, obj.vy);
-  const calm  = 1 - 0.75 * inStream;                       // airflow strength
+  // NOTE: not named `calm` — that is the Calm Air timer object, and shadowing
+  // it here silently stopped the power-up from ever expiring.
+  const stillness = 1 - 0.75 * inStream;                   // airflow strength
   const slow  = 1 - 0.60 * Math.min(sp / (480 * S), 1);    // vertical+lateral speed
   const broad = wsp > 1 ? Math.abs(wx * nx + wy * ny) / wsp : 1;   // current angle
   const edgeOfStream = inStream > 0.02 ? 0.55 + 0.45 * Math.min(Math.abs(tAxis), 1.4) / 1.4 : 1;
-  const fg = clamp(calm * slow * (0.45 + 0.55 * broad) * edgeOfStream, 0, 1);
+  const fg = clamp(stillness * slow * (0.45 + 0.55 * broad) * edgeOfStream, 0, 1);
 
   // occasional gusts so the drift never settles into a rhythm
   if (Math.random() < o.gustChance * dt){
@@ -1489,7 +1499,10 @@ function physics(dt){
   if (cam.y < cam.top) cam.top = cam.y;
   if (cam.y > cam.top + P.camSlack) cam.y = cam.top + P.camSlack;
 
-  if (calm.t > 0) calm.t -= dt;
+  if (calm.t > 0){
+    calm.t -= dt;
+    if (calm.t <= 0){ calm.t = 0; endCalm(); }
+  }
   hoopLogic();
   coinLogic();
   orbLogic();
@@ -1519,6 +1532,18 @@ function wallBrush(v, dir){
 // ===================================================================
 //  HOOPS
 // ===================================================================
+// The nearest ring still ahead of the object — what the Calm Air autopilot
+// steers the stream toward.
+function nextGate(){
+  let best = null;
+  for (let i = 0; i < hoops.length; i++){
+    const h = hoops[i];
+    if (h.done || h.y >= obj.y) continue;
+    if (!best || h.y > best.y) best = h;       // y grows downward: the largest y is the closest
+  }
+  return best;
+}
+
 function hoopLogic(){
   for (let i = 0; i < hoops.length; i++){
     const h = hoops[i];
@@ -1554,11 +1579,7 @@ function onPass(h, offRatio){
   if(h.fuel){
     const gained=Math.min(FUEL.refill,100-RUN.fuel);RUN.fuel=Math.min(100,RUN.fuel+FUEL.refill);RUN.lowWarned=RUN.fuel<=FUEL.low;
     pops.push({x:h.x,y:h.y-44*S,t:0,txt:'⛽ +%'+Math.round(gained),big:true,gold:true});
-<<<<<<< HEAD
     burst(h.x,h.y,42,'gold',.85);Snd.refuel();haptic([60,40,60,40,110]);
-=======
-    burst(h.x,h.y,42,'gold',.85);Snd.refuel();haptic([50,45,70]);
->>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   }
   updateRunHUD();
   combo++;
@@ -1568,16 +1589,12 @@ function onPass(h, offRatio){
   score += pts;
   uiScore.textContent = score;
   Snd.pass(combo, centred);
-<<<<<<< HEAD
   // every ring is felt: a solid thump, a double tap when it is perfect,
   // and a longer roll on each 5-ring combo milestone
   if(!h.fuel){
     const milestone = combo % 5 === 0;
     haptic(milestone ? [45,45,45,45,100] : centred ? [30,35,75] : 55);
   }
-=======
-  if(!h.fuel)haptic(centred ? [35,40,45] : 30);
->>>>>>> 43b06c112568e9e227d6aa27202829f06f025e8f
   h.flash = centred ? 1 : 0.42;                  // ring glows, brighter if perfect
   burst(h.x, h.y, centred ? 48 : 28, centred ? 'perfect' : 'blue', centred ? 1.25 : 1);
   if (centred){
@@ -1778,7 +1795,7 @@ function drawCoins(cy){
 //             jet width and physics never snap back
 // ===================================================================
 const CALM = {
-  dur      : 4.0,    // seconds of effect
+  dur      : 5.0,    // seconds of hands-off autopilot
   fade     : 0.40,   // smooth ease-out at the end
   every    : [8, 12],// spawn one roughly every 8-12 gates
   r        : 15,     // orb radius (px @ 720p ref)
@@ -1837,8 +1854,16 @@ function takeOrb(o){
   if (obj.vy > 120 * S) obj.vy *= (1 - CALM.brake);
   Snd.calm();
   burst(o.x, o.y, 14, 'calm', 0.9);
-  pops.push({ x:o.x, y:o.y, t:0, txt:'CALM AIR', big:true, calm:true });
+  pops.push({ x:o.x, y:o.y, t:0, txt:'OTOPİLOT', big:true, calm:true });
+  notice('Otopilot devrede · elini çekip mola verebilirsin');
   haptic([10,30,15]);
+}
+
+// Hands the controls back. Announced, so the drop is never a surprise.
+function endCalm(){
+  notice('Otopilot bitti · basılı tut');
+  haptic([30,60,30]);
+  Snd.blip(392, 0.34, 'sine', 0.08);
 }
 
 function stepOrbs(dt){
@@ -2349,18 +2374,19 @@ function drawObject(cy){
     ag.addColorStop(1, 'rgba(150,235,255,0)');
     ctx.fillStyle = ag;
     ctx.beginPath(); ctx.arc(0, 0, R * 2.3, 0, 6.2832); ctx.fill();
-    ctx.strokeStyle = 'rgba(190,245,255,' + (0.45 * cf).toFixed(3) + ')';
-    ctx.lineWidth = 2 * S;
-    ctx.beginPath();
-    ctx.arc(0, 0, R * (1.5 + Math.sin(tSec * 2.6) * 0.06), 0, 6.2832);
-    ctx.stroke();
   }
 
-  // halo when it is sitting in the stream
+  // Glow while it is sitting in the stream. A flat fill gave this a hard
+  // edge, which read as a ring drawn around the object; a gradient fades
+  // out instead, so only the light on it is visible.
   const r2 = sampleJet(obj.x, obj.y);
   if (air.pressure > 0.05 && r2.core > 0.02){
-    ctx.fillStyle = 'rgba(255,255,255,' + (r2.core * air.pressure * 0.40).toFixed(3) + ')';
-    ctx.beginPath(); ctx.arc(0, 0, Math.max(L, Vw) * 1.25, 0, 6.2832); ctx.fill();
+    const R = Math.max(L, Vw) * 1.5;
+    const hg = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R);
+    hg.addColorStop(0, 'rgba(255,255,255,' + (r2.core * air.pressure * 0.34).toFixed(3) + ')');
+    hg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = hg;
+    ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.2832); ctx.fill();
   }
 
   ctx.rotate(obj.ang);
@@ -2684,6 +2710,11 @@ let hapticsOn=true;
 try{hapticsOn=localStorage.getItem('airlift_haptics')!=='false'; Snd.on=localStorage.getItem('airlift_sound')!=='false'}catch(e){}
 function haptic(pattern){
   if(!tapped || !hapticsOn || typeof navigator.vibrate!=='function')return false;
+  // Browsers refuse vibrate() until the frame has had a real user gesture, and
+  // log an error for every blocked call. `tapped` is our own flag and can be
+  // set by a synthetic event, so ask the browser itself when it can tell us.
+  const ua = navigator.userActivation;
+  if(ua && ua.hasBeenActive === false) return false;
   try{return navigator.vibrate(pattern)}catch(e){return false}
 }
 const hb=document.getElementById('hapticBtn'), sb=document.getElementById('sndBtn');
@@ -2725,7 +2756,7 @@ window.AIRLIFT = {
   get fuel(){return RUN.fuel},get pace(){return RUN.pace},get passed(){return RUN.passed},
   obj, air, cam, jet, sampleJet, physics, draw, hoops: () => hoops,
   coins: () => coins, orbs: () => orbs, calm, calmF, addCoin, spendCoins, loadCoins, saveCoins, stepParts,
-  OBJECT_ORDER, setObject, selectObject, unlockObject, loadObjects, keyOf,
+  OBJECT_ORDER, selectObject, unlockObject, loadObjects, keyOf,
   get unlocked(){ return unlocked.slice(); }, get objKey(){ return keyOf(OBJ); },
   get runCoins(){ return runCoins; }, get totalCoins(){ return totalCoins; },
   play: () => { startGame(); },
