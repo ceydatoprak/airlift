@@ -1022,18 +1022,23 @@ function addHoop(){
   const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff)) * (isFuel ? 1.10 : 1);   // ~15% smaller than before
   const prev = hoops.length ? hoops[hoops.length - 1].x : W * 0.5;
   const drift = W * P.hoopDrift;
-  // ~18% of gates drift. Reserve the swing room BEFORE clamping, so a gate
-  // near a wall still gets a real amplitude instead of being flattened to 0.
-  let amp = 0;
+  // Reserve the swing room BEFORE clamping, so a gate near a wall still gets
+  // a real amplitude instead of being flattened to 0.
+  //   * a golden fuel ring ALWAYS sweeps, and further — it is the most
+  //     valuable ring in the game, so it should have to be timed
+  //   * ~18% of ordinary gates drift, gently, as before
   const edge = rx + 14 * S;
-  if (!isFuel && Math.random() < 0.18) amp = Math.min(W * 0.085, Math.max(0, (W - edge * 2) * 0.5 - 4 * S));
+  const room = Math.max(0, (W - edge * 2) * 0.5 - 4 * S);
+  let amp = 0;
+  if (isFuel) amp = Math.min(W * 0.15, room);
+  else if (Math.random() < 0.18) amp = Math.min(W * 0.085, room);
   const x = clamp(prev + rnd(-drift, drift), edge + amp, W - edge - amp);
 
   hoops.push({
     id: hoopId++, fuel:isFuel, x, homeX: x, y: spawnY, rx, ry: rx * 0.30,
     done: false, missed: false, pulse: 0, glow: 0,
     seed: Math.random() * 6.2832, pal: isFuel ? 'fuel' : pickRingPal(),
-    amp, driftSpd: rnd(0.22, 0.40), flash: 0
+    amp, driftSpd: isFuel ? rnd(0.34, 0.52) : rnd(0.22, 0.40), flash: 0
   });
   if (hoops.length >= 2) maybeSpawnCoins(hoops[hoops.length - 2], hoops[hoops.length - 1], diff);
   maybeSpawnOrb(hoops[hoops.length - 1]);
