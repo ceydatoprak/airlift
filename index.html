@@ -1857,7 +1857,8 @@ const AUTO = {
 const CALM = {
   dur      : 4.0,    // real seconds of gentle protection
   fade     : 0.75,   // smooth ease-out at the end
-  every    : [8, 12],// spawn one roughly every 8-12 gates
+  every    : [30, 42],// rare on purpose: a breather you look forward to,
+                     //   not something that keeps taking the controls away
   r        : 15,     // orb radius (px @ 720p ref)
   grab     : 1.9,    // extra forgiveness on pickup
   wider    : 0.15,   // slightly wider stream
@@ -1866,7 +1867,7 @@ const CALM = {
   // Descent and rotation damping are applied gently throughout the bubble.
 };
 const calm = { t: 0 };
-let orbs = [], gatesToOrb = 9;
+let orbs = [], gatesToOrb = 34;
 
 function calmF(){
   if (calm.t <= 0) return 0;
