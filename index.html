@@ -264,6 +264,7 @@
 // ===================================================================
 const cv  = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
+const mainContext = ctx;
 
 let W = 0, H = 0, DPR = 1, S = 1;      // S = scale relative to a 720px-tall reference
 const REF_H = 720;
@@ -506,19 +507,19 @@ function tune(){
   P.gBase      = 1150 * S;      // reference gravity
   P.jetFBase   = 4.2 * P.gBase; // reference jet force at the nozzle
   P.range      = H * 0.78;      // how far the jet reaches
-  P.coneBase   = 30 * S;        // jet width at the nozzle
-  P.spread     = 0.34;          // jet widening per unit of distance
+  P.coneBase   = 36 * S;        // jet width at the nozzle
+  P.spread     = 0.39;          // jet widening per unit of distance
   P.falloffPow = 1.35;          // force decay along the jet
   P.hPush      = 0.55;          // horizontal authority of the jet (keep < 1)
   P.attack     = 7.0;           // pressure rise rate
   P.release    = 14.0;          // pressure fade rate (fast, but not a hard cut)
-  P.baseFollow = 8.0;           // smooth, direct tracking of the player's finger
+  P.baseFollow = 10.0;           // smooth, direct tracking of the player's finger
   P.baseSpeed  = 1.65 * W;      // max blower slide speed (px/s)
-  P.tiltMax    = 0.25;          // max jet tilt (~14 deg) — a gentler lean now
+  P.tiltMax    = 0.18;          // gentle lean (~10 deg), less sideways overshoot
                                 //   that the beam itself tracks your finger,
                                 //   so leaning costs far less lift
   P.tiltRef    = W * 0.30;      // finger lag that produces full tilt
-  P.centerMul  = 1.05;          // gentle entrainment without locking to the axis
+  P.centerMul  = 1.20;          // gentle entrainment without locking to the axis
   P.nozzleY    = 74 * S;        // nozzle height above the bottom edge
   P.camUp      = 3.4;
   P.camDown    = 1.5;
@@ -1290,10 +1291,10 @@ function physics(dt){
   // --- local air velocity, straight from the visible jet field ---------
   // The feather is carried by the air rather than merely pushed by it, so
   // what you see in the stream is what moves it.
-  let airVX = 0, airVY = 0, core = 0, tAxis = 99, fall = 0;
+  let airVX = 0, airVY = 0, core = 0, tAxis = 99, fall = 0, axisOffset = 0;
   if (air.pressure > 0.004){
     const r = sampleJet(obj.x, obj.y);
-    core = r.core; tAxis = r.t; fall = r.fall;
+    core = r.core; tAxis = r.t; fall = r.fall; axisOffset = r.lat;
     if (core > 0){
       const spAir = P.airSpeed * air.pressure * core;
       airVX = jet.dx * spAir;
@@ -1324,7 +1325,7 @@ function physics(dt){
   }
 
   // --- entrainment: the stream pulls it back toward its axis ------------
-  if (air.pressure > 0.004 && tAxis < 2.0 && fall > 0){
+  if (air.pressure > 0.004 && Math.abs(tAxis) < 2.0 && fall > 0){
     const px = -jet.dy, py = jet.dx;
     const pull = -Math.sign(tAxis) * Math.min(Math.abs(tAxis), 1) *
                  P.center * mCent * air.pressure * fall * im;
@@ -1427,6 +1428,15 @@ function physics(dt){
   }
   if (o.angFlutter) torque += (fnoise(tSec * o.flutterFreq * 1.7 + 88.4) + gust.rot) * o.angFlutter * fg * mCalm;
   if (o.angFromVx)  torque += -obj.vx * o.angFromVx;   // horizontal motion tips it over
+
+  // A damped lateral response helps the object follow the player's stream.
+  // It fades at the edge, never changes the blower, and never targets rings.
+  if (air.pressure > .004 && Math.abs(tAxis) < 1.8 && fall > 0){
+    const edge = clamp((1.8 - Math.abs(tAxis)) / .8, 0, 1);
+    const targetVX = clamp(-axisOffset * 3.2, -190*S, 190*S);
+    const response = 8 * air.pressure * Math.sqrt(fall) * edge * clamp(im, .7, 1.3);
+    obj.vx += (targetVX - obj.vx) * (1 - Math.exp(-response * dt));
+  }
 
   // --- integrate rotation ---------------------------------------------
   if (P.spinRoll){
@@ -2091,13 +2101,49 @@ function pickRingPal(){
 }
 
 function drawHoop(h, cy, back){
+  const sy = h.y - cy + Math.sin(tSec * 1.15 + h.seed) * 2.2*S;
+  if (sy < -170*S || sy > H+170*S) return;
+  // Brief pass/flash effects use the original painter.
+  if (h.pulse > .02 || h.flash > .02){ paintHoop(h,cy,back); return; }
+  const status = h.done ? 2 : h.missed ? 1 : 0;
+  if (!h._art || h._art.status !== status || h._art.s !== S || h._art.rx !== h.rx){
+    const width = Math.ceil(h.rx*2 + 80*S), height = Math.ceil(h.ry*2 + 130*S);
+    const art = {status,s:S,rx:h.rx,width,height,layers:[]};
+    for (const far of [true,false]){
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.ceil(width*DPR);canvas.height=Math.ceil(height*DPR);
+      const c=canvas.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);
+      const copy={...h,x:width/2,y:height/2,pulse:0,flash:0,glow:0};
+      paintHoop(copy,0,far,c,true);art.layers.push(canvas);
+    }
+    h._art=art;
+  }
+  const art=h._art, breathe=1+Math.sin(tSec*1.55+h.seed*1.7)*.015;
+  ctx.save();ctx.translate(h.x,sy);ctx.scale(breathe,breathe);
+  ctx.drawImage(art.layers[back?0:1],-art.width/2,-art.height/2,art.width,art.height);
+  if (back && !h.done && h.glow>.02){
+    const tw=Math.min(h.rx*.185,19*S);
+    ctx.fillStyle='rgba(255,255,255,'+(h.glow*.22)+')';
+    ctx.beginPath();ctx.ellipse(0,0,h.rx-tw*.45,h.ry-tw*.45,0,0,Math.PI*2);ctx.fill();
+  }
+  if (!back) paintRingShimmer(ctx,h.rx,h.ry,Math.min(h.rx*.185,19*S),h.seed);
+  ctx.restore();
+}
+
+function paintRingShimmer(c,rx,ry,tw,seed){
+  const sh=Math.sin(tSec*.8+seed)*.16;
+  c.lineCap='round';c.lineWidth=tw*.28;c.strokeStyle='rgba(255,255,255,.62)';
+  c.beginPath();c.ellipse(0,0,rx-tw*.22,ry-tw*.22,0,.55+sh,Math.PI*.62+sh);c.stroke();
+}
+
+function paintHoop(h, cy, back, ctx = mainContext, cached = false){
   // idle life: a slow breath and a tiny float. Both are VISUAL ONLY —
   // h.y is never touched, so pass detection stays exactly as it was.
-  const bob     = Math.sin(tSec * 1.15 + h.seed) * 2.2 * S;
+  const bob     = cached ? 0 : Math.sin(tSec * 1.15 + h.seed) * 2.2 * S;
   const sy      = h.y - cy + bob;
   if (sy < -170 * S || sy > H + 170 * S) return;
 
-  const breathe = 1 + Math.sin(tSec * 1.55 + h.seed * 1.7) * 0.015;
+  const breathe = cached ? 1 : 1 + Math.sin(tSec * 1.55 + h.seed * 1.7) * 0.015;
   const pop     = 1 + h.pulse * 0.17;
   const rx      = h.rx * breathe * pop;
   const ry      = h.ry * breathe * pop;
@@ -2129,7 +2175,7 @@ function drawHoop(h, cy, back){
     ctx.save();ctx.shadowColor='#ffbe55';ctx.shadowBlur=12*S;
     ctx.strokeStyle=h.done?'#b6f4c9':'#ffdf8c';ctx.lineWidth=2*S;
     ctx.setLineDash([6*S,5*S]);ctx.beginPath();ctx.ellipse(0,0,rx+9*S,ry+7*S,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-    const by=-ry-40*S;ctx.fillStyle='#342c1a';roundRect(-65*S,by,130*S,25*S,9*S);ctx.fill();ctx.stroke();
+    const by=-ry-40*S;ctx.fillStyle='#342c1a';roundRect(-65*S,by,130*S,25*S,9*S,ctx);ctx.fill();ctx.stroke();
     ctx.shadowBlur=0;ctx.fillStyle=h.done?'#b6f4c9':'#ffe8a4';ctx.font='800 '+(12*S)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.done?'⛽ YAKIT ALINDI':'⛽ YAKIT +%28',0,by+12*S);ctx.restore();
   }
   ctx.lineCap = 'round';
@@ -2182,12 +2228,7 @@ function drawHoop(h, cy, back){
 
     // 4. highlight riding the top of the tube; the span drifts a little,
     //    which reads as a gentle shimmer without moving the ring
-    const sh = Math.sin(tSec * 0.8 + h.seed) * 0.16;
-    ctx.lineWidth = tw * 0.28;
-    ctx.strokeStyle = 'rgba(255,255,255,.62)';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, rx - tw * 0.22, ry - tw * 0.22, 0, 0.55 + sh, Math.PI * 0.62 + sh);
-    ctx.stroke();
+    if (!cached) paintRingShimmer(ctx,rx,ry,tw,h.seed);
 
     // 5. small specular blob for the toy/candy feel
     ctx.fillStyle = 'rgba(255,255,255,.55)';
@@ -2324,6 +2365,21 @@ airTexture.width=1; airTexture.height=256;
   c.fillStyle=g;c.fillRect(0,0,1,256);
 }
 
+let objectArtKey='', objectArt=new Map();
+function objectSprite(){
+  const key=keyOf(OBJ)+':'+S+':'+DPR+':'+P.objLen+':'+P.objWid;
+  if(key!==objectArtKey){objectArtKey=key;objectArt.clear();}
+  const flex=(OBJ.art==='balloon' || OBJ.art==='feather') ? Math.round(obj.bend*8) : 0;
+  if(!objectArt.has(flex)){
+    const radius=Math.ceil(Math.max(P.objLen,P.objWid)*2+18*S), size=radius*2;
+    const canvas=document.createElement('canvas');canvas.width=canvas.height=Math.ceil(size*DPR);
+    const c=canvas.getContext('2d');c.setTransform(DPR,0,0,DPR,radius*DPR,radius*DPR);
+    paintShape(c,OBJ,P.objLen,P.objWid,S,flex/8);
+    objectArt.set(flex,{canvas,radius,size});
+  }
+  return objectArt.get(flex);
+}
+
 function drawObject(cy){
   const y = obj.y - cy;
   const L = P.objLen, Vw = P.objWid;
@@ -2354,7 +2410,8 @@ function drawObject(cy){
   }
 
   ctx.rotate(obj.ang);
-  paintShape(ctx, OBJ, L, Vw, S, obj.bend);
+  const art=objectSprite();
+  ctx.drawImage(art.canvas,-art.radius,-art.radius,art.size,art.size);
   ctx.restore();
 }
 
@@ -2612,7 +2669,7 @@ function drawBlower(cy){
   ctx.restore();
 }
 
-function roundRect(x, y, w, h, r){
+function roundRect(x, y, w, h, r, ctx = mainContext){
   ctx.beginPath();
   if (ctx.roundRect){ ctx.roundRect(x, y, w, h, r); return; }
   r = Math.min(r, w / 2, h / 2);
@@ -2645,13 +2702,13 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt = (now - last) / 1000;
   last = now;
-  if (dt > 0.25) dt = 0.25;
+  if (dt > 0.067) dt = 0.067;
 
   if (state === 'play'){
     acc += dt;
     let guard = 0;
-    while (state === 'play' && acc >= STEP && guard++ < 8){ physics(STEP); acc -= STEP; }
-    if (guard >= 8) acc = 0;
+    while (state === 'play' && acc >= STEP && guard++ < 4){ physics(STEP); acc -= STEP; }
+    if (guard >= 4) acc %= STEP;
     stepParts(dt);
     Snd.wind(air.pressure, air.tilt);
     if (comboTimer > 0){
