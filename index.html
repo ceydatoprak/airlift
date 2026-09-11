@@ -221,7 +221,7 @@
     <div class="edition">GECE YOLCULUĞU / 01</div><div class="title">AIRLIFT</div>
     <div class="sub">Basılı tut, hava akımını yükselt.<br>Sağa sola kaydır, rüzgâra yön ver.<br><span id="startLine">Float the feather through the rings.</span></div>
     <div class="hintHand"></div>
-    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5"><b style="color:#ffe0a0">⛽ Altın halka depoyu tamamen doldurur.</b><br>Halkaları geçtikçe hızlan; yakıtını koru.</div>
+    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5"><b style="color:#ffe0a0">⛽ Altın halka yakıtın üçte birini verir.</b><br>Halkaları geçtikçe hızlan; yakıtını koru.</div>
     <div class="startCoins"><span class="coinIcon"></span><span id="startCoinVal">0</span></div>
     <button class="btn" id="startBtn">UÇUŞA BAŞLA</button>
     <button class="btnAlt" id="objBtn">HANGAR</button>
@@ -300,7 +300,8 @@ function resize(){
     cam.y*=sy;cam.top*=sy;spawnY*=sy;lastCoinY*=sy;
     air.baseX*=sx;air.px*=sx;air.py*=sy;
     for(const h of hoops){h.x*=sx;h.homeX*=sx;h.y*=sy;h.rx*=sx;h.ry*=sx;h.amp*=sx}
-    for(const list of [parts,pops,coins,orbs]) for(const p of list){p.x*=sx;p.y*=sy}
+    for(const list of [parts,pops,coins,orbs,meteors]) for(const p of list){p.x*=sx;p.y*=sy}
+    for(const m of meteors){m.homeX*=sx;m.amp*=sx}
     applyProfile();obj.r=P.objR;
   }
 }
@@ -683,6 +684,22 @@ const Snd = {
     note(f,        t,         0.075, 0.15);
     note(f * 1.5,  t + 0.052, 0.130, 0.13);   // a fifth up, classic pickup shape
   },
+  // Meteor impact: a dull knock plus the blower coughing out.
+  clunk(){
+    if (!this.ready || !this.on) return;
+    const t = this.ac.currentTime;
+    const o = this.ac.createOscillator(), g = this.ac.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(190, t);
+    o.frequency.exponentialRampToValueAtTime(54, t + 0.16);
+    g.gain.setValueAtTime(0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.20);
+    o.connect(g).connect(this.master);
+    o.start(t); o.stop(t + 0.22);
+    // two dying coughs as the motor stalls
+    this.blip(132, 0.10, 'sawtooth', 0.055, 0.16);
+    this.blip(104, 0.12, 'sawtooth', 0.045, 0.31);
+  },
   refuel(){
     if(!this.ready || !this.on)return;
     [392,493.88,587.33,783.99].forEach((f,i)=>{
@@ -709,7 +726,10 @@ const Snd = {
 //  STATE
 // ===================================================================
 const RUN = {fuel:100, passed:0, launched:false, pace:1.08, lowWarned:false};
-const FUEL = {burn:4.8, low:22};      // ~21 s of continuous airflow on a full tank
+const FUEL = {burn:6.7, refill:35, low:22};  // ~15 s of continuous airflow on a full
+                                            //   tank. A ring gives back LESS than a lap
+                                            //   costs at full power, so holding the
+                                            //   screen down can no longer sustain itself.
 let normalRingsToFuel = 8;
 function targetPace(n){return 1.08 + .52 * Math.min(n / 12, 1)}
 function stepRun(dt){
@@ -1000,12 +1020,13 @@ function reset(){
   gust.t = 0; gust.x = 0; gust.rot = 0;
   air.down = false; air.pressure = 0; air.tilt = 0; air.tiltRaw = 0;
   air.baseX = W * 0.5; air.px = W * 0.5; air.py = H * 0.8;
-  hoops = []; parts = []; pops = []; coins = []; orbs = [];
+  hoops = []; parts = []; pops = []; coins = []; orbs = []; meteors = [];
   score = 0; combo = 0; hoopId = 0; tSec = 0;
   normalRingsToFuel = 8 + Math.floor(Math.random() * 3);
   airAcc = 0;
   runCoins = 0; lastCoinY = 0;
   calm.t = 0; gatesToOrb = Math.round(rnd(CALM.every[0], CALM.every[1]));
+  gatesToMeteor = METEOR.firstAt; sputter.t = 0; sputter.immune = 0; sputter.sparkAcc = 0;
   skyStage = 0; lastPal = ''; updateSky();
   spawnY = obj.y - H * 0.34;
   while (spawnY > cam.y - H * 1.1) addHoop();
@@ -1019,7 +1040,9 @@ function addHoop(){
   const isFuel = normalRingsToFuel === 0;
   if (isFuel) normalRingsToFuel = 8 + Math.floor(Math.random() * 3);
   else normalRingsToFuel--;
-  const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff)) * (isFuel ? 1.10 : 1);   // ~15% smaller than before
+  // The golden ring is the tightest opening in the game — it is also the one
+  // that keeps you alive, so hitting it has to be an actual piece of flying.
+  const rx = Math.max(44 * S, W * (0.191 - 0.026 * diff)) * (isFuel ? 0.82 : 1);
   const prev = hoops.length ? hoops[hoops.length - 1].x : W * 0.5;
   const drift = W * P.hoopDrift;
   // Reserve the swing room BEFORE clamping, so a gate near a wall still gets
@@ -1030,18 +1053,33 @@ function addHoop(){
   const edge = rx + 14 * S;
   const room = Math.max(0, (W - edge * 2) * 0.5 - 4 * S);
   let amp = 0;
-  if (isFuel) amp = Math.min(W * 0.15, room);
+  // A narrower sweep than before, on purpose: the wide one ate so much of the
+  // playfield that every golden ring ended up passing through the middle.
+  if (isFuel) amp = Math.min(W * 0.10, room);
   else if (Math.random() < 0.18) amp = Math.min(W * 0.085, room);
-  const x = clamp(prev + rnd(-drift, drift), edge + amp, W - edge - amp);
+  const lo = edge + amp, hi = W - edge - amp;
+  let x;
+  if (isFuel){
+    // Mostly parked out on one side or the other so reaching it means crossing
+    // the screen; roughly a quarter of them still sit near the middle.
+    if (Math.random() < 0.25) x = clamp(W * 0.5 + rnd(-1, 1) * W * 0.06, lo, hi);
+    else if (Math.random() < 0.5) x = clamp(lo + Math.random() * W * 0.03, lo, hi);
+    else                         x = clamp(hi - Math.random() * W * 0.03, lo, hi);
+  } else {
+    x = clamp(prev + rnd(-drift, drift), lo, hi);
+  }
 
   hoops.push({
     id: hoopId++, fuel:isFuel, x, homeX: x, y: spawnY, rx, ry: rx * 0.30,
     done: false, missed: false, pulse: 0, glow: 0,
     seed: Math.random() * 6.2832, pal: isFuel ? 'fuel' : pickRingPal(),
-    amp, driftSpd: isFuel ? rnd(0.34, 0.52) : rnd(0.22, 0.40), flash: 0
+    // A fuel ring sweeps ~30% quicker than a drifting ordinary one — enough
+    // to read as alive and to need lining up, never enough to dart away.
+    amp, driftSpd: isFuel ? rnd(0.32, 0.49) : rnd(0.22, 0.40), flash: 0
   });
   if (hoops.length >= 2) maybeSpawnCoins(hoops[hoops.length - 2], hoops[hoops.length - 1], diff);
   maybeSpawnOrb(hoops[hoops.length - 1]);
+  if (hoops.length >= 2) maybeSpawnMeteor(hoops[hoops.length - 2], hoops[hoops.length - 1]);
   spawnY -= rnd(P.gapMin, P.gapMax) * (1 + 0.16 * diff);
 }
 
@@ -1272,7 +1310,14 @@ function updateJet(dt){
   // The autopilot holds the beam upright; only a real finger leans it.
   air.tiltRaw = (air.down && !auto) ? clamp((air.px - air.baseX) / P.tiltRef, -1, 1) * P.tiltMax : 0;
   air.tilt += (air.tiltRaw - air.tilt) * (1 - Math.exp(-dt * 11));
-  if (auto || (air.down && RUN.fuel > 0)) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
+  // A meteor hit gates the pressure the blower can reach. Falling toward
+  // that gate is deliberately faster than rising to it, so the cut-out is
+  // felt immediately and the recovery still arrives smoothly.
+  const sg = sputterGain();
+  if (auto || (air.down && RUN.fuel > 0)){
+    const rate = sg < air.pressure ? 18 : P.attack;
+    air.pressure += (sg - air.pressure) * (1 - Math.exp(-dt * rate));
+  }
   else air.pressure *= Math.exp(-dt * P.release);
   if (air.pressure < 0.0005) air.pressure = 0;
 
@@ -1313,6 +1358,7 @@ function physics(dt){
   if(state!=="play")return;
   if(!RUN.launched){if(!air.down){updateJet(dt);return}RUN.launched=true}
   stepRun(dt);
+  stepSputter(dt);
   // Protection lasts four real seconds regardless of flight pace.
   if (calm.t > 0){
     calm.t = Math.max(0, calm.t - dt);
@@ -1547,6 +1593,7 @@ function physics(dt){
   hoopLogic();
   coinLogic();
   orbLogic();
+  meteorLogic(dt);
   emitAir(dt);
 
   // --- fell out of the play area
@@ -1617,9 +1664,12 @@ function hoopLogic(){
 function onPass(h, offRatio){
   RUN.passed++;
   if(h.fuel){
-    // A golden ring is always a full tank — never a partial top-up.
-    RUN.fuel = 100; RUN.lowWarned = false;
-    pops.push({x:h.x,y:h.y-44*S,t:0,txt:'TAM DEPO',big:true,gold:true});
+    // A golden ring is worth half a tank, added to whatever is left. It is
+    // a lifeline, not a reset: a full lap still has to be planned.
+    const gained = Math.min(FUEL.refill, 100 - RUN.fuel);
+    RUN.fuel = Math.min(100, RUN.fuel + FUEL.refill);
+    RUN.lowWarned = RUN.fuel <= FUEL.low;
+    pops.push({x:h.x,y:h.y-44*S,t:0,txt:'+%'+Math.round(gained),big:true,gold:true});
     burst(h.x,h.y,26,'gold',.8);Snd.refuel();haptic([18,26,34]);fuelFullFlash();
   }
   updateRunHUD();
@@ -2029,6 +2079,210 @@ function drawOrbs(cy){
 }
 
 // ===================================================================
+//  METEORS
+//  ------------------------------------------------------------------
+//  The one hazard in the game. A meteor never kills: touching one makes
+//  the blower sputter for a moment, so the cost of a hit is a short loss
+//  of lift, not the run. They sit in the GAP between rings, never in a
+//  ring opening, and never where a fuel ring or an Auto Flight orb is.
+// ===================================================================
+const METEOR = {
+  r        : 19,      // rock radius (px @ 720p ref) — big enough to matter
+  every    : [6, 9],  // one opportunity every 6-9 rings
+  firstAt  : 6,       // no meteors at all until this many rings have spawned
+  amp      : 0.09,    // lateral sweep (x screen width) — slow and readable
+  spd      : [0.20, 0.34],
+  edgePad  : 34,      // keep clear of the walls
+  clearY   : 0.13,    // min vertical distance from a ring plane (x screen height)
+  grab     : 1.15     // collision forgiveness across the object's width
+};
+let meteors = [], gatesToMeteor = METEOR.firstAt;
+
+// A small irregular rock, generated once so its silhouette is stable.
+function rockShape(){
+  const n = 9, pts = [];
+  for (let i = 0; i < n; i++) pts.push(0.74 + Math.random() * 0.42);
+  return pts;
+}
+
+// Called per ring. Places at most one meteor in the gap BELOW the new ring.
+function maybeSpawnMeteor(prev, gate){
+  if (hoopId < METEOR.firstAt) return;
+  if (--gatesToMeteor > 0) return;
+  gatesToMeteor = Math.round(rnd(METEOR.every[0], METEOR.every[1]));
+  // A fairness skip must not burn the opportunity, or the real spacing
+  // drifts well past the intended 6-9 rings. Retry at the very next ring.
+  const retry = () => { gatesToMeteor = 1; };
+  // never in the approach to a fuel ring: that lane has to stay clean
+  if (gate.fuel || prev.fuel) return retry();
+
+  const gap = prev.y - gate.y;                       // gate is above prev
+  const clear = H * METEOR.clearY;
+  if (gap < clear * 2.4) return retry();             // not enough room to be fair
+  const y = gate.y + clear + Math.random() * (gap - clear * 2);
+
+  // stay off the straight line between the two ring centres, so the natural
+  // route is never blocked outright — it is a thing to steer around
+  const t = clamp((prev.y - y) / gap, 0, 1);
+  const lane = prev.x + (gate.x - prev.x) * t;
+  // Reserve the swing room BEFORE clamping, or the sweep carries the rock
+  // through the wall at its extremes.
+  const pad = (METEOR.edgePad + METEOR.r) * S;
+  const room = Math.max(0, (W - pad * 2) * 0.5 - 4 * S);
+  const amp = Math.min(W * METEOR.amp, room);
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const off = gate.rx * rnd(0.55, 1.15) * side;
+  const x = clamp(lane + off, pad + amp, W - pad - amp);
+
+  // and never on top of an Auto Flight orb
+  for (let i = 0; i < orbs.length; i++){
+    const o = orbs[i];
+    if (Math.abs(o.y - y) < H * 0.09 && Math.abs(o.x - x) < (CALM.r + METEOR.r + 26) * S) return retry();
+  }
+
+  meteors.push({
+    x, homeX: x, y, amp,
+    spd: rnd(METEOR.spd[0], METEOR.spd[1]),
+    seed: Math.random() * 6.2832,
+    spin: rnd(-0.5, 0.5),
+    ang: Math.random() * 6.2832,
+    shape: rockShape(),
+    hit: 0
+  });
+}
+
+// Same forgiving ellipse test the coins and orbs use.
+function meteorLogic(dt){
+  const ca = Math.cos(obj.ang), sa = Math.sin(obj.ang);
+  const mr = METEOR.r * S;
+  const ra = P.objLen * 0.85 + mr;
+  const rn = P.objWid * METEOR.grab + mr;
+  for (let i = 0; i < meteors.length; i++){
+    const m = meteors[i];
+    if (m.hit > 0){ m.hit -= dt; continue; }
+    // the Auto Flight bubble shields the object: a hit there would fight
+    // the very thing the power-up promises
+    if (calm.t > 0 || sputter.immune > 0) continue;
+    const dx = m.x - obj.x, dy = m.y - obj.y;
+    if (dx * dx + dy * dy > (ra + rn) * (ra + rn)) continue;
+    const la = dx * ca + dy * sa;
+    const ln = -dx * sa + dy * ca;
+    if ((la * la) / (ra * ra) + (ln * ln) / (rn * rn) <= 1) hitMeteor(m);
+  }
+}
+
+function hitMeteor(m){
+  m.hit = 0.5;                                  // this rock stops testing
+  sputter.t = SPUTTER.dur;
+  sputter.immune = SPUTTER.immune;
+  burst(m.x, m.y, 16, 'ember', 0.95);
+  Snd.clunk();
+  haptic([18,30,22]);
+}
+
+function stepMeteors(dt){
+  const cull = cam.y + H + 240 * S;
+  for (let i = meteors.length - 1; i >= 0; i--){
+    const m = meteors[i];
+    if (m.y > cull){ meteors[i] = meteors[meteors.length - 1]; meteors.pop(); continue; }
+    m.x = m.homeX + Math.sin(tSec * m.spd + m.seed) * m.amp;   // slow, predictable
+    m.ang += m.spin * dt;
+    // a lazy ember every so often so it reads as hot rock, not a grey blob
+    if (parts.length < MAX_AIR && Math.random() < dt * 2.2 &&
+        m.y > cam.y - 40 * S && m.y < cam.y + H + 40 * S){
+      parts.push({
+        t:0, x: m.x + rnd(-6, 6) * S, y: m.y + rnd(-6, 6) * S,
+        vx: rnd(-14, 14) * S, vy: rnd(6, 26) * S,
+        life: rnd(0.35, 0.7), r: rnd(1.2, 2.4) * S, kind: 1, col: '255,164,84'
+      });
+    }
+  }
+}
+
+function drawMeteors(cy){
+  const mr = METEOR.r * S;
+  for (let i = 0; i < meteors.length; i++){
+    const m = meteors[i];
+    const y = m.y - cy;
+    if (y < -60 * S || y > H + 60 * S) continue;
+    ctx.save();
+    ctx.translate(m.x, y);
+    ctx.rotate(m.ang);
+
+    const sh = m.shape, n = sh.length;
+    ctx.beginPath();
+    for (let k = 0; k < n; k++){
+      const a = k / n * 6.2832, rr = mr * sh[k];
+      const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+      k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+
+    // warm rim first, so the glow sits behind the dark body
+    ctx.strokeStyle = 'rgba(255,150,60,.85)';
+    ctx.lineWidth = 2.4 * S;
+    ctx.shadowColor = '#ff8a3d';
+    ctx.shadowBlur = 9 * S;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#2b2430';
+    ctx.fill();
+
+    // two craters and a lit edge: enough to read as rock at this size
+    ctx.fillStyle = 'rgba(255,255,255,.10)';
+    ctx.beginPath(); ctx.arc(-mr * 0.26, -mr * 0.20, mr * 0.24, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(mr * 0.30, mr * 0.16, mr * 0.16, 0, 6.2832); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,190,120,.45)';
+    ctx.lineWidth = 1.3 * S;
+    ctx.beginPath(); ctx.arc(0, 0, mr * 0.62, -2.5, -0.7); ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
+// ===================================================================
+//  BLOWER SPUTTER — what a meteor actually costs you
+//  ------------------------------------------------------------------
+//  A hit never kills. It knocks the airflow out for a moment: a fast cut,
+//  a stutter, then a smooth recovery. Gravity keeps running throughout,
+//  so the object falls naturally — the player loses lift, not control.
+// ===================================================================
+const SPUTTER = { dur: 1.05, immune: 1.6 };
+const sputter = { t: 0, immune: 0, sparkAcc: 0 };
+
+// 0..1 multiplier on the pressure the blower is trying to reach.
+function sputterGain(){
+  if (sputter.t <= 0) return 1;
+  const e = SPUTTER.dur - sputter.t;               // seconds since the hit
+  // Phases are fractions of dur, so the shape holds if the length is retuned.
+  const cut = SPUTTER.dur * 0.36, stall = SPUTTER.dur * 0.79;
+  if (e < cut)   return Math.max(0, 1 - e / (SPUTTER.dur * 0.14));  // cuts out at once
+  if (e < stall) return Math.sin(e * 64) > 0.2 ? 0.40 : 0.02;       // coughs on and off
+  return clamp((e - stall) / (SPUTTER.dur - stall), 0, 1);          // eases back to full
+}
+
+function stepSputter(dt){
+  if (sputter.immune > 0) sputter.immune -= dt;
+  if (sputter.t <= 0) return;
+  sputter.t -= dt;
+  if (sputter.t < 0) sputter.t = 0;
+  // a few sparks off the machine while it is coughing
+  sputter.sparkAcc += dt;
+  if (sputter.sparkAcc > 0.09 && parts.length < MAX_AIR + 40){
+    sputter.sparkAcc = 0;
+    const n = 2 + ((Math.random() * 3) | 0);
+    for (let i = 0; i < n; i++){
+      parts.push({
+        t:0, x: jet.ox + rnd(-16, 16) * S, y: jet.oy + rnd(-6, 10) * S,
+        vx: rnd(-90, 90) * S, vy: rnd(-150, -30) * S,
+        life: rnd(0.18, 0.38), r: rnd(1.1, 2.2) * S, kind: 1, col: '255,190,90'
+      });
+    }
+  }
+}
+
+// ===================================================================
 //  PARTICLES — one flat array, hard cap, no DOM
 // ===================================================================
 const MAX_AIR = 150;
@@ -2061,6 +2315,7 @@ function burst(x, y, n, tint, power){
   const rgb = tint === 'white'   ? '255,255,255'
             : tint === 'gold'    ? '255,206,64'
             : tint === 'perfect' ? '255,224,130'
+            : tint === 'ember'   ? '255,150,60'
             : tint === 'calm'    ? '120,225,255'
             : '150,225,255';
   for (let i = 0; i < n; i++){
@@ -2110,6 +2365,7 @@ function stepParts(dt){
   }
   stepCoins(dt);
   stepOrbs(dt);
+  stepMeteors(dt);
 }
 
 // ===================================================================
@@ -2191,6 +2447,7 @@ function draw(){
   drawParts(cy, 0);
   drawCoins(cy);
   drawOrbs(cy);
+  drawMeteors(cy);
   drawObject(cy);
   for (let i = 0; i < hoops.length; i++) drawHoop(hoops[i], cy, false);  // near half
   drawParts(cy, 1);
@@ -2315,7 +2572,7 @@ function paintHoop(h, cy, back, ctx = mainContext, cached = false){
     ctx.strokeStyle=h.done?'#b6f4c9':'#ffdf8c';ctx.lineWidth=2*S;
     ctx.setLineDash([6*S,5*S]);ctx.beginPath();ctx.ellipse(0,0,rx+9*S,ry+7*S,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
     const by=-ry-40*S;ctx.fillStyle='#342c1a';roundRect(-65*S,by,130*S,25*S,9*S,ctx);ctx.fill();ctx.stroke();
-    ctx.shadowBlur=0;ctx.fillStyle=h.done?'#b6f4c9':'#ffe8a4';ctx.font='800 '+(12*S)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.done?'⛽ DEPO DOLDU':'⛽ TAM DEPO',0,by+12*S);ctx.restore();
+    ctx.shadowBlur=0;ctx.fillStyle=h.done?'#b6f4c9':'#ffe8a4';ctx.font='800 '+(12*S)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.done?'⛽ ALINDI':'⛽ YAKIT +%35',0,by+12*S);ctx.restore();
   }
   ctx.lineCap = 'round';
   ctx.shadowColor=sk.mid;ctx.shadowBlur=10*S;
@@ -2476,7 +2733,8 @@ function drawPops(cy){
     ctx.strokeStyle = 'rgba(255,255,255,.9)';
     ctx.lineWidth = 4 * S;
     ctx.strokeText(p.txt, p.x, p.y - cy);
-    ctx.fillStyle = p.calm ? '#1fa8d8'
+    ctx.fillStyle = p.ember ? '#ff7a3d'
+                  : p.calm ? '#1fa8d8'
                   : p.perfect ? '#ff8a3d'
                   : p.gold ? '#e09415'
                   : (p.big ? '#ff8a3d' : '#2f8fe8');
@@ -2828,7 +3086,13 @@ function drawBlower(cy){
   }
   ctx.fillStyle=bodyGrad();roundRect(-27,-8,54,37,11);ctx.fill();ctx.strokeStyle='#96c7c777';ctx.lineWidth=1;ctx.stroke();
   ctx.save();ctx.rotate(air.tilt);ctx.fillStyle='#122e3d';roundRect(-20,-30,40,26,7);ctx.fill();ctx.strokeStyle='#c3e4d8';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,-28,18,6,0,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle=p>.02?'#9af9e1':'#355963';ctx.shadowColor='#7affd9';ctx.shadowBlur=p*18;ctx.beginPath();ctx.ellipse(0,-28,14,3,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.restore();
+  // While the machine is sputtering the nozzle light stutters and goes warm,
+  // so the cause of the lost lift is visible on the blower itself.
+  const spF = sputter.t > 0 ? (Math.sin(tSec * 61) > 0 ? 1 : 0.25) : 1;
+  ctx.fillStyle = sputter.t > 0 ? (spF > .5 ? '#ffc26a' : '#4a3a33') : (p > .02 ? '#9af9e1' : '#355963');
+  ctx.shadowColor = sputter.t > 0 ? '#ff9a4d' : '#7affd9';
+  ctx.shadowBlur = (sputter.t > 0 ? 14 * spF : p * 18);
+  ctx.beginPath();ctx.ellipse(0,-28,14,3,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.restore();
   ctx.save();ctx.translate(0,9);ctx.fillStyle='#0d2534';ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.rotate(tSec*(3+p*22));ctx.fillStyle='#9fbeba';
   for(let i=0;i<6;i++){ctx.rotate(Math.PI/3);ctx.beginPath();ctx.moveTo(2,0);ctx.quadraticCurveTo(11,-9,11,0);ctx.lineTo(4,3);ctx.fill()}ctx.restore();
   ctx.fillStyle='#e3c18a';ctx.beginPath();ctx.arc(0,9,3,0,Math.PI*2);ctx.fill();
@@ -2948,7 +3212,7 @@ window.AIRLIFT = {
   P, OBJ, PROFILES, setObject, applyProfile,
   get fuel(){return RUN.fuel},get pace(){return RUN.pace},get passed(){return RUN.passed},
   obj, air, cam, jet, sampleJet, physics, draw, hoops: () => hoops,
-  coins: () => coins, orbs: () => orbs, calm, calmF, addCoin, spendCoins, loadCoins, saveCoins, stepParts,
+  coins: () => coins, orbs: () => orbs, meteors: () => meteors, sputter, METEOR, SPUTTER, sputterGain, calm, calmF, addCoin, spendCoins, loadCoins, saveCoins, stepParts,
   OBJECT_ORDER, selectObject, unlockObject, loadObjects, keyOf,
   get unlocked(){ return unlocked.slice(); }, get objKey(){ return keyOf(OBJ); },
   get runCoins(){ return runCoins; }, get totalCoins(){ return totalCoins; },
