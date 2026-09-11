@@ -193,7 +193,10 @@
   @media(max-height:620px){.card{padding:16px 22px}.hintHand{display:none}.title{font-size:30px}.sub{font-size:12px}.scores{margin:10px 0}.objGrid{grid-template-columns:repeat(3,1fr)}.edition{margin-bottom:5px}}
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 #fuelHUD{position:absolute;top:calc(env(safe-area-inset-top,0px) + 76px);left:14px;width:142px;background:#071c30d9;padding:10px 12px;border:1px solid #f4c56c44;border-radius:13px}
-#fuelCaption{display:flex;justify-content:space-between;color:#fce1a4;font-size:10px;font-weight:800;letter-spacing:.07em}.fuelTrack{height:6px;border-radius:5px;background:#ffffff16;margin-top:7px;overflow:hidden}#fuelFill{height:100%;background:linear-gradient(90deg,#efa743,#ffe8a2);transform-origin:left;transition:background .2s}#fuelHUD.low #fuelFill{background:#ff775c}
+#fuelCaption{display:flex;justify-content:space-between;color:#fce1a4;font-size:10px;font-weight:800;letter-spacing:.07em}.fuelTrack{height:6px;border-radius:5px;background:#ffffff16;margin-top:7px;overflow:hidden}#fuelFill{height:100%;background:linear-gradient(90deg,#efa743,#ffe8a2);transform-origin:left;transition:transform .16s linear,background .2s}#fuelHUD.low #fuelFill{background:#ff775c}
+#fuelHUD.full #fuelFill{transition:transform .22s cubic-bezier(.2,1.4,.4,1),background .2s}
+#fuelHUD.full{animation:fuelFull .55s ease-out}
+@keyframes fuelFull{0%{box-shadow:0 0 0 0 #ffd98a00}35%{box-shadow:0 0 16px 2px #ffd98a99;border-color:#ffdf9c}100%{box-shadow:0 0 0 0 #ffd98a00}}
 #notice{position:fixed;z-index:20;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 70px);transform:translateX(-50%);width:min(340px,90vw);padding:13px 17px;border:1px solid #ddf6d74d;border-radius:14px;background:#112d42f5;color:#e8f5e6;font-size:12px;line-height:1.65;pointer-events:none;opacity:0;transition:opacity .2s}#notice.on{opacity:1}
 #comboTag{top:calc(env(safe-area-inset-top,0px) + 155px)}#hapticBtn{max-width:146px;font-size:10px}
 @media(max-height:500px){#fuelHUD{top:70px;padding:7px 10px}.card .sub{line-height:1.4}}
@@ -218,7 +221,7 @@
     <div class="edition">GECE YOLCULUĞU / 01</div><div class="title">AIRLIFT</div>
     <div class="sub">Basılı tut, hava akımını yükselt.<br>Sağa sola kaydır, rüzgâra yön ver.<br><span id="startLine">Float the feather through the rings.</span></div>
     <div class="hintHand"></div>
-    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5"><b style="color:#ffe0a0">⛽ Altın halkalar +%28 yakıt.</b><br>Halkaları geçtikçe hızlan; yakıtını koru.</div>
+    <div class="sub" style="margin:10px 0 10px;font-size:12px;opacity:.5"><b style="color:#ffe0a0">⛽ Altın halka depoyu tamamen doldurur.</b><br>Halkaları geçtikçe hızlan; yakıtını koru.</div>
     <div class="startCoins"><span class="coinIcon"></span><span id="startCoinVal">0</span></div>
     <button class="btn" id="startBtn">UÇUŞA BAŞLA</button>
     <button class="btnAlt" id="objBtn">HANGAR</button>
@@ -271,8 +274,11 @@ const REF_H = 720;
 
 function resize(){
   const oldW=W, oldH=H;
-  const newW = cv.clientWidth, newH = cv.clientHeight;
-  if (!newW || !newH) return;                 // hidden / zero-size: nothing to do
+  // A hidden or not-yet-laid-out canvas measures 0. Falling back to the
+  // window keeps W/H positive: leaving them at zero makes every later
+  // divide-by-H a NaN and takes the whole script down.
+  const newW = cv.clientWidth  || window.innerWidth  || 1;
+  const newH = cv.clientHeight || window.innerHeight || 1;
   if (newW === oldW && newH === oldH) return; // spurious resize event
   // Mobile browsers fire `resize` every time the address bar slides away, so
   // pausing on any change would interrupt the run constantly. Only a real
@@ -339,16 +345,16 @@ const PROFILES = {
     mass       : 1.00,   // reference mass — keeps the tuned feather identical
 
     gravity    : 0.30,   // x base gravity — floats down slowly
-    lift       : 0.86,   // x base jet force — very easy to pick up
-    hMul       : 1.15,   // x horizontal authority of the jet
+    lift       : 0.95,   // x base jet force — very easy to pick up
+    hMul       : 1.35,   // x horizontal authority of the jet
     dragLin    : 2.05,   // still very draggy; just not sluggish
     dragQuad   : 0.0165,
     dragEdge   : 0.18,
-    airSpeed   : 910,    // strong air carries it up briskly
-    center     : 0.55,
-    turb       : 0.34,
+    airSpeed   : 970,    // strong air carries it up briskly
+    center     : 0.62,
+    turb       : 0.24,   // still wanders, but no longer fights the player
 
-    flutter    : 190, flutterFreq: 0.85, gustChance: 0.55, gustPower: 1.9,
+    flutter    : 150, flutterFreq: 0.85, gustChance: 0.40, gustPower: 1.6,
 
     angDrag    : 3.1, angResp: 0.055, angFromVx: 0.0016,
     angFlutter : 6.2, angMax: 6.5, alignAir: 2.4,
@@ -365,7 +371,7 @@ const PROFILES = {
 
     gravity    : 0.88,   // falls fast when the air stops
     lift       : 4.05,   // needs real air under it (divided by the big mass)
-    hMul       : 1.05,   // sluggish, but it must still be steerable
+    hMul       : 1.30,   // heavy, but it must answer the finger clearly
     dragLin    : 0.75,   // slippery: momentum is kept
     dragQuad   : 0.0040,
     dragEdge   : 1.00,   // sphere — no preferred direction
@@ -392,7 +398,7 @@ const PROFILES = {
 
     gravity    : 0.78,   // drops properly — it is a ball, not a feather
     lift       : 1.25,
-    hMul       : 1.70,   // very easy to push too far sideways
+    hMul       : 1.55,   // lively without throwing itself off screen
     dragLin    : 0.95,   // sheds speed quickly, but does not hang in the air
     dragQuad   : 0.0055,
     dragEdge   : 1.00,
@@ -418,7 +424,7 @@ const PROFILES = {
 
     gravity    : 0.22,   // barely falls
     lift       : 0.39,
-    hMul       : 0.92,
+    hMul       : 1.18,   // no longer sluggish; still the slow, floaty one
     dragLin    : 2.55,   // huge surface area
     dragQuad   : 0.0210,
     dragEdge   : 0.95,   // near enough to round
@@ -444,7 +450,7 @@ const PROFILES = {
 
     gravity    : 0.62,
     lift       : 1.75,   // must be able to gain height, not just glide down
-    hMul       : 2.70,   // it slips sideways through air, so the jet needs
+    hMul       : 2.35,   // it slips sideways through air, so the jet needs
                          // more direct horizontal bite to steer it
     dragLin    : 0.76,   // carries forward momentum further
     dragQuad   : 0.0052,
@@ -476,7 +482,7 @@ const PROFILES = {
 
     gravity    : 0.85,   // sinks fast once the air is gone
     lift       : 3.60,   // superb climb rate while lined up in the stream
-    hMul       : 1.60,   // nose-on it is very slippery sideways; compensate
+    hMul       : 1.75,   // nose-on it is very slippery sideways; compensate
     dragLin    : 0.70,
     dragQuad   : 0.0045,
     dragEdge   : 0.10,   // extremely streamlined along its axis
@@ -505,21 +511,19 @@ const P = {};
 function tune(){
   // --- the air itself: identical no matter what is flying in it -----
   P.gBase      = 1150 * S;      // reference gravity
-  P.jetFBase   = 4.2 * P.gBase; // reference jet force at the nozzle
+  P.jetFBase   = 4.7 * P.gBase; // reference jet force — holding air lifts confidently
   P.range      = H * 0.78;      // how far the jet reaches
   P.coneBase   = 36 * S;        // jet width at the nozzle
   P.spread     = 0.39;          // jet widening per unit of distance
   P.falloffPow = 1.35;          // force decay along the jet
-  P.hPush      = 0.55;          // horizontal authority of the jet (keep < 1)
-  P.attack     = 7.0;           // pressure rise rate
+  P.hPush      = 0.70;          // horizontal authority of the jet (keep < 1)
+  P.attack     = 9.5;           // pressure rise rate — the jet answers quickly
   P.release    = 14.0;          // pressure fade rate (fast, but not a hard cut)
   P.baseFollow = 10.0;           // smooth, direct tracking of the player's finger
-  P.baseSpeed  = 1.65 * W;      // max blower slide speed (px/s)
-  P.tiltMax    = 0.18;          // gentle lean (~10 deg), less sideways overshoot
-                                //   that the beam itself tracks your finger,
-                                //   so leaning costs far less lift
-  P.tiltRef    = W * 0.30;      // finger lag that produces full tilt
-  P.centerMul  = 1.20;          // gentle entrainment without locking to the axis
+  P.baseSpeed  = 2.40 * W;      // max blower slide speed — keeps up with a fast swipe
+  P.tiltMax    = 0.26;          // lean (~15 deg): a clear sideways answer
+  P.tiltRef    = W * 0.22;      // finger lag that produces full tilt — smaller = crisper
+  P.centerMul  = 1.55;          // the stream keeps hold, so the object never feels lost
   P.nozzleY    = 74 * S;        // nozzle height above the bottom edge
   P.camUp      = 3.4;
   P.camDown    = 1.5;
@@ -704,27 +708,42 @@ const Snd = {
 // ===================================================================
 //  STATE
 // ===================================================================
-const RUN = {fuel:100, passed:0, launched:false, pace:.95, lowWarned:false};
-const FUEL = {burn:7.2, refill:28, low:22};
+const RUN = {fuel:100, passed:0, launched:false, pace:1.08, lowWarned:false};
+const FUEL = {burn:4.8, low:22};      // ~21 s of continuous airflow on a full tank
 let normalRingsToFuel = 8;
-function targetPace(n){return .95 + .50 * Math.min(n / 12, 1)}
+function targetPace(n){return 1.08 + .52 * Math.min(n / 12, 1)}
 function stepRun(dt){
   RUN.pace+=(targetPace(RUN.passed)-RUN.pace)*(1-Math.exp(-dt*2.2));
   // Fuel uses real time and only burns while the player holds airflow.
-  if(air.down && RUN.fuel>0) RUN.fuel=Math.max(0,RUN.fuel-dt*FUEL.burn*(.3+.7*air.pressure)*(1-.08*calmF()));
-  if(RUN.fuel<=0) air.pressure=0;
-  if(RUN.fuel<=FUEL.low && !RUN.lowWarned){RUN.lowWarned=true;notice('Yakıt azalıyor · ⛽ altın halkayı hedefle');haptic([45,65,45]);Snd.blip(261.63,.5,'sine',.07)}
+  // Auto Flight runs on its own tank, so the player's fuel is untouched.
+  if(air.down && RUN.fuel>0 && calm.t<=0) RUN.fuel=Math.max(0,RUN.fuel-dt*FUEL.burn*(.3+.7*air.pressure));
+  if(RUN.fuel<=0 && calm.t<=0) air.pressure=0;
+  if(RUN.fuel<=FUEL.low && !RUN.lowWarned){RUN.lowWarned=true;notice('Yakıt azalıyor · ⛽ altın halkayı hedefle');haptic([24,40,24]);Snd.blip(261.63,.5,'sine',.07)}
 }
-let lastFuelUI='', noticeTimer=0;
+let lastFuelUI='', noticeTimer=0, fuelFullTimer=0;
+// Looked up once: this runs on every frame that the gauge actually moves.
+const elFuelVal   = document.getElementById('fuelVal');
+const elFuelFill  = document.getElementById('fuelFill');
+const elFuelMeter = document.getElementById('fuelMeter');
+const elFuelHUD   = document.getElementById('fuelHUD');
+const elNotice    = document.getElementById('notice');
 function updateRunHUD(){
-  const value=Math.ceil(RUN.fuel),key=value;
-  if(key===lastFuelUI)return;lastFuelUI=key;
-  document.getElementById('fuelVal').textContent='%'+value;
-  document.getElementById('fuelFill').style.transform='scaleX('+RUN.fuel/100+')';
-  document.getElementById('fuelMeter').setAttribute('aria-valuenow',String(value));
-  document.getElementById('fuelHUD').classList.toggle('low',value<=FUEL.low);
+  const value=Math.ceil(RUN.fuel);
+  if(value===lastFuelUI)return;lastFuelUI=value;
+  elFuelVal.textContent='%'+value;
+  elFuelFill.style.transform='scaleX('+RUN.fuel/100+')';
+  elFuelMeter.setAttribute('aria-valuenow',String(value));
+  elFuelHUD.classList.toggle('low',value<=FUEL.low);
 }
-function notice(text){const n=document.getElementById('notice');n.textContent=text;n.classList.add('on');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>n.classList.remove('on'),4500)}
+// A short gold pulse on the gauge when a golden ring fills the tank.
+function fuelFullFlash(){
+  elFuelHUD.classList.remove('full');
+  void elFuelHUD.offsetWidth;                 // restart the CSS animation
+  elFuelHUD.classList.add('full');
+  clearTimeout(fuelFullTimer);
+  fuelFullTimer=setTimeout(()=>elFuelHUD.classList.remove('full'),600);
+}
+function notice(text){elNotice.textContent=text;elNotice.classList.add('on');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>elNotice.classList.remove('on'),4500)}
 let state = 'ready';                       // ready | play | over
 // ang = orientation of the shaft, angVel = angular velocity (real rotational state)
 const obj = { x:0, y:0, vx:0, vy:0, r:20, ang:0, angVel:0, py:0, bend:0 };
@@ -913,11 +932,12 @@ const rgba = (c, a) => 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
 
 function updateSky(){
   // altitude drives everything; cam.top is the highest point reached
-  const climbed = Math.max(0, -cam.top) / H;
+  const climbed = H > 0 ? Math.max(0, -cam.top) / H : 0;
   skyStage = clamp(climbed / SKY_PER_STAGE, 0, SKY.length - 1);
+  if (!(skyStage >= 0)) skyStage = 0;          // NaN-proof: clamp() passes NaN through
   const key = Math.round(skyStage * 220);
   if (key === skyKey) return;
-  const i = Math.min(Math.floor(skyStage), SKY.length - 2);
+  const i = clamp(Math.floor(skyStage) || 0, 0, SKY.length - 2);
   const t = skyStage - i;
   const A = SKY[i], B = SKY[i + 1];
   sky.top = mix(A.top, B.top, t);
@@ -945,9 +965,12 @@ function updateSky(){
   }
 }
 
-let skyGrad = null, hazeGrad = null, skyKey = -1, blobs = [], stars = [];
+let skyGrad = null, hazeGrad = null, skyKey = -1, blobs = [], stars = [], dangerGrad = null;
+const STAR_BUCKETS = 4;
+const starBuckets = [[], [], [], []];
 function buildBackdrop(){
   skyKey = -1;                     // force a rebuild at the new size
+  dangerGrad = null;               // size-dependent, so it goes with it
   if (!blobs.length){
     for (let i = 0; i < 12; i++){
       blobs.push({
@@ -968,7 +991,7 @@ function buildBackdrop(){
 //  GAME FLOW
 // ===================================================================
 function reset(){
-  RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=.95;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
+  RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=1.08;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
   cam.y = 0; cam.top = 0;
   obj.x = W * 0.5;  obj.y = H * 0.58;  obj.py = obj.y;
   obj.vx = 0; obj.vy = -40 * S;
@@ -1226,14 +1249,25 @@ const jet = { ox:0, oy:0, dx:0, dy:-1, res:{ core:0, lat:0, cr:1, fall:0, t:99, 
 function updateJet(dt){
   // Only player input sets the blower target. Exponential easing and a
   // speed cap soften movement without pulling back toward the object.
-  const targetX = clamp(air.px, 26 * S, W - 26 * S);
-  if (air.down){
+  //
+  // Auto Flight is the one exception: the blower drives itself, staying
+  // under the object (so the stream never abandons it) while leading a
+  // little toward the next ring. The player may let go entirely.
+  const auto = calm.t > 0;
+  let want = air.px;
+  if (auto){
+    const gate = nextGate();
+    want = obj.x + ((gate ? gate.x : obj.x) - obj.x) * AUTO.lead;
+  }
+  const targetX = clamp(want, 26 * S, W - 26 * S);
+  if (air.down || auto){
     const dx = (targetX - air.baseX) * (1 - Math.exp(-dt * P.baseFollow));
     air.baseX += clamp(dx, -P.baseSpeed * dt, P.baseSpeed * dt);
   }
-  air.tiltRaw = air.down ? clamp((air.px - air.baseX) / P.tiltRef, -1, 1) * P.tiltMax : 0;
+  // The autopilot holds the beam upright; only a real finger leans it.
+  air.tiltRaw = (air.down && !auto) ? clamp((air.px - air.baseX) / P.tiltRef, -1, 1) * P.tiltMax : 0;
   air.tilt += (air.tiltRaw - air.tilt) * (1 - Math.exp(-dt * 11));
-  if (air.down && RUN.fuel > 0) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
+  if (auto || (air.down && RUN.fuel > 0)) air.pressure += (1 - air.pressure) * (1 - Math.exp(-dt * P.attack));
   else air.pressure *= Math.exp(-dt * P.release);
   if (air.pressure < 0.0005) air.pressure = 0;
 
@@ -1275,7 +1309,10 @@ function physics(dt){
   if(!RUN.launched){if(!air.down){updateJet(dt);return}RUN.launched=true}
   stepRun(dt);
   // Protection lasts four real seconds regardless of flight pace.
-  calm.t = Math.max(0, calm.t - dt);
+  if (calm.t > 0){
+    calm.t = Math.max(0, calm.t - dt);
+    if (calm.t === 0) endAutoFlight();
+  }
   updateJet(dt);
   dt *= RUN.pace;
   tSec += dt;
@@ -1451,7 +1488,19 @@ function physics(dt){
     obj.angVel = clamp(obj.angVel, -o.angMax, o.angMax);
   }
   obj.angVel *= Math.exp(-dt * 2.0 * cf);
-  if (obj.vy > 0) obj.vy *= Math.exp(-dt * 0.35 * cf);
+
+  // --- AUTO FLIGHT -----------------------------------------------------
+  // The bubble is not decoration: it actually flies the object. Both axes
+  // are eased toward a target VELOCITY rather than set, and the blend rate
+  // is scaled by cf — which ramps in, then fades out over CALM.fade — so
+  // control arrives and leaves smoothly, with no teleporting or snapping.
+  if (cf > 0.001){
+    obj.vy += (-AUTO.climb * S - obj.vy) * (1 - Math.exp(-dt * AUTO.vRate * cf));
+    const gate = nextGate();
+    const wantVx = clamp(((gate ? gate.x : obj.x) - obj.x) * AUTO.steer,
+                         -AUTO.maxVx * S, AUTO.maxVx * S);
+    obj.vx += (wantVx - obj.vx) * (1 - Math.exp(-dt * AUTO.hRate * cf));
+  }
   obj.ang += obj.angVel * dt;
   if (obj.ang >  Math.PI) obj.ang -= Math.PI * 2;
   if (obj.ang < -Math.PI) obj.ang += Math.PI * 2;
@@ -1460,8 +1509,12 @@ function physics(dt){
   obj.bend += (clamp(obj.angVel * 0.16, -1, 1) - obj.bend) * (1 - Math.exp(-dt * 8));
 
   // Bound travel speed while retaining each object's aerodynamic character.
+  // Under Auto Flight the ceiling eases down toward AUTO.climb, so the
+  // bubble reads as a calm assisted glide rather than a full-power boost.
+  // It is a limit, not a snap: speed still arrives and leaves continuously.
+  const upCap = -(310 + (AUTO.climb - 310) * cf) * S;
   obj.vx=clamp(obj.vx,-300*S,300*S);
-  obj.vy=clamp(obj.vy,-310*S,430*S);
+  obj.vy=clamp(obj.vy,upCap,430*S);
   // --- integrate position ---------------------------------------------
   obj.x += obj.vx * dt;
   obj.y += obj.vy * dt;
@@ -1515,6 +1568,17 @@ function wallBrush(v, dir){
 // ===================================================================
 //  HOOPS
 // ===================================================================
+// The closest ring still ahead of the object. Auto Flight steers toward it.
+function nextGate(){
+  let best = null;
+  for (let i = 0; i < hoops.length; i++){
+    const h = hoops[i];
+    if (h.done || h.y >= obj.y) continue;
+    if (!best || h.y > best.y) best = h;   // y grows downward: largest y is nearest
+  }
+  return best;
+}
+
 function hoopLogic(){
   for (let i = 0; i < hoops.length; i++){
     const h = hoops[i];
@@ -1548,9 +1612,10 @@ function hoopLogic(){
 function onPass(h, offRatio){
   RUN.passed++;
   if(h.fuel){
-    const gained=Math.min(FUEL.refill,100-RUN.fuel);RUN.fuel=Math.min(100,RUN.fuel+FUEL.refill);RUN.lowWarned=RUN.fuel<=FUEL.low;
-    pops.push({x:h.x,y:h.y-44*S,t:0,txt:'⛽ +%'+Math.round(gained),big:true,gold:true});
-    burst(h.x,h.y,42,'gold',.85);Snd.refuel();haptic([60,40,60,40,110]);
+    // A golden ring is always a full tank — never a partial top-up.
+    RUN.fuel = 100; RUN.lowWarned = false;
+    pops.push({x:h.x,y:h.y-44*S,t:0,txt:'TAM DEPO',big:true,gold:true});
+    burst(h.x,h.y,26,'gold',.8);Snd.refuel();haptic([18,26,34]);fuelFullFlash();
   }
   updateRunHUD();
   combo++;
@@ -1560,12 +1625,9 @@ function onPass(h, offRatio){
   score += pts;
   uiScore.textContent = score;
   Snd.pass(combo, centred);
-  // every ring is felt: a solid thump, a double tap when it is perfect,
-  // and a longer roll on each 5-ring combo milestone
-  if(!h.fuel){
-    const milestone = combo % 5 === 0;
-    haptic(milestone ? [45,45,45,45,100] : centred ? [30,35,75] : 55);
-  }
+  // Every ring is felt, and none of it outstays its welcome: one short tick
+  // for a normal pass, a quick double for a perfect one.
+  if(!h.fuel) haptic(centred ? [12,24,20] : 16);
   h.flash = centred ? 1 : 0.42;                  // ring glows, brighter if perfect
   burst(h.x, h.y, centred ? 48 : 28, centred ? 'perfect' : 'blue', centred ? 1.25 : 1);
   if (centred){
@@ -1707,8 +1769,39 @@ function stepCoins(dt){
   }
 }
 
+// Rasterized once per screen size. Rendered oversized so the 1.5x pickup
+// pop stays crisp when the sprite is scaled up.
+let coinSprite = null, coinSpriteKey = '';
+function getCoinSprite(){
+  const cr = COIN.r * S;
+  const key = cr.toFixed(2) + ':' + DPR;
+  if (coinSpriteKey === key && coinSprite) return coinSprite;
+  const R = cr + 2 * S + 2;
+  const px = Math.max(8, Math.ceil(R * 2 * DPR * 1.6));
+  const cvs = document.createElement('canvas');
+  cvs.width = cvs.height = px;
+  const c = cvs.getContext('2d');
+  const k = px / (R * 2);
+  c.setTransform(k, 0, 0, k, R * k, R * k);
+  const g = c.createRadialGradient(-cr * 0.35, -cr * 0.38, cr * 0.12, 0, 0, cr);
+  g.addColorStop(0,    '#fff6bd');
+  g.addColorStop(0.42, '#ffd53f');
+  g.addColorStop(1,    '#e8961c');
+  c.fillStyle = g;
+  c.beginPath(); c.arc(0, 0, cr, 0, 6.2832); c.fill();
+  c.strokeStyle = 'rgba(184,116,14,.55)'; c.lineWidth = 1.7 * S; c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.45)'; c.lineWidth = 1.4 * S;
+  c.beginPath(); c.arc(0, 0, cr * 0.60, 0, 6.2832); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.65)';
+  c.beginPath(); c.ellipse(-cr * 0.30, -cr * 0.34, cr * 0.26, cr * 0.17, -0.6, 0, 6.2832); c.fill();
+  coinSpriteKey = key;
+  coinSprite = { canvas: cvs, half: R };
+  return coinSprite;
+}
+
 function drawCoins(cy){
   const cr = COIN.r * S;
+  const sprite = getCoinSprite();
   for (let i = 0; i < coins.length; i++){
     const c = coins[i];
     const y = c.y - cy;
@@ -1732,25 +1825,9 @@ function drawCoins(cy){
     ctx.translate(c.x, y + float);
     ctx.scale(spin * sc, sc);
 
-    const g = ctx.createRadialGradient(-cr * 0.35, -cr * 0.38, cr * 0.12, 0, 0, cr);
-    g.addColorStop(0,    '#fff6bd');
-    g.addColorStop(0.42, '#ffd53f');
-    g.addColorStop(1,    '#e8961c');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, cr, 0, 6.2832); ctx.fill();
-
-    ctx.strokeStyle = 'rgba(184,116,14,.55)';
-    ctx.lineWidth = 1.7 * S;
-    ctx.stroke();
-
-    // inner rim + highlight
-    ctx.strokeStyle = 'rgba(255,255,255,.45)';
-    ctx.lineWidth = 1.4 * S;
-    ctx.beginPath(); ctx.arc(0, 0, cr * 0.60, 0, 6.2832); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.65)';
-    ctx.beginPath();
-    ctx.ellipse(-cr * 0.30, -cr * 0.34, cr * 0.26, cr * 0.17, -0.6, 0, 6.2832);
-    ctx.fill();
+    // The coin face is rasterized once per screen size; a trail of them is
+    // now one drawImage each instead of a fresh gradient and four paths.
+    ctx.drawImage(sprite.canvas, -sprite.half, -sprite.half, sprite.half * 2, sprite.half * 2);
 
     ctx.restore();
   }
@@ -1765,6 +1842,18 @@ function drawCoins(cy){
 //    calmF()  0..1 strength, eased out over the last FADE seconds so the
 //             jet width and physics never snap back
 // ===================================================================
+// How the bubble actually flies the object. Every number is a TARGET the
+// physics eases toward, never a value it is assigned — that is what keeps
+// Auto Flight smooth instead of robotic.
+const AUTO = {
+  climb : 250,   // px/s @720p the climb settles at: it can never fall
+  vRate : 8.0,   // strong enough to own the climb rather than let the jet
+                 //   pin it to the speed limit — a calm glide, not a rocket
+  steer : 2.0,   // sideways speed per px of offset from the next ring
+  maxVx : 200,   // cap on that sideways speed
+  hRate : 3.4,   // how quickly sideways speed eases toward the target
+  lead  : 0.55   // how far the blower leads the object toward the ring
+};
 const CALM = {
   dur      : 4.0,    // real seconds of gentle protection
   fade     : 0.75,   // smooth ease-out at the end
@@ -1824,8 +1913,17 @@ function takeOrb(o){
 
   Snd.calm();
   burst(o.x, o.y, 14, 'calm', 0.9);
-  pops.push({ x:o.x, y:o.y, t:0, txt:'SAKİN HAVA', big:true, calm:true });
-  haptic([10,30,15]);
+  pops.push({ x:o.x, y:o.y, t:0, txt:'OTOMATİK UÇUŞ', big:true, calm:true });
+  notice('Otomatik uçuş · elini çekebilirsin');
+  haptic([10,26,14]);
+}
+
+// Control comes back gradually (cf has already been fading for CALM.fade
+// seconds); this only tells the player it is theirs again.
+function endAutoFlight(){
+  notice('Kontrol sende · basılı tut');
+  haptic([14,30,14]);
+  Snd.blip(392, 0.30, 'sine', 0.07);
 }
 
 function stepOrbs(dt){
@@ -1851,8 +1949,39 @@ function stepOrbs(dt){
   }
 }
 
+// Static halo + glass sphere, rasterized once per screen size.
+let orbSprite = null, orbSpriteKey = '';
+function getOrbSprite(){
+  const cr = CALM.r * S;
+  const key = cr.toFixed(2) + ':' + DPR;
+  if (orbSpriteKey === key && orbSprite) return orbSprite;
+  const R = cr * 1.85 + 2 * S + 2;
+  const px = Math.max(8, Math.ceil(R * 2 * DPR * 1.6));
+  const cvs = document.createElement('canvas');
+  cvs.width = cvs.height = px;
+  const c = cvs.getContext('2d');
+  const k = px / (R * 2);
+  c.setTransform(k, 0, 0, k, R * k, R * k);
+  const hg = c.createRadialGradient(0, 0, cr * 0.4, 0, 0, cr * 1.85);
+  hg.addColorStop(0, 'rgba(140,230,255,.35)');
+  hg.addColorStop(1, 'rgba(140,230,255,0)');
+  c.fillStyle = hg;
+  c.beginPath(); c.arc(0, 0, cr * 1.85, 0, 6.2832); c.fill();
+  const g = c.createRadialGradient(-cr * 0.35, -cr * 0.38, cr * 0.12, 0, 0, cr);
+  g.addColorStop(0, 'rgba(255,255,255,.95)');
+  g.addColorStop(0.45, 'rgba(150,232,255,.80)');
+  g.addColorStop(1, 'rgba(70,180,230,.60)');
+  c.fillStyle = g;
+  c.beginPath(); c.arc(0, 0, cr, 0, 6.2832); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1.6 * S; c.stroke();
+  orbSpriteKey = key;
+  orbSprite = { canvas: cvs, half: R };
+  return orbSprite;
+}
+
 function drawOrbs(cy){
   const cr = CALM.r * S;
+  const orb = getOrbSprite();
   for (let i = 0; i < orbs.length; i++){
     const o = orbs[i];
     const y = o.y - cy;
@@ -1872,21 +2001,9 @@ function drawOrbs(cy){
     ctx.translate(o.x, y + bob);
     ctx.scale(sc, sc);
 
-    // soft halo
-    const hg = ctx.createRadialGradient(0, 0, cr * 0.4, 0, 0, cr * 1.85);
-    hg.addColorStop(0, 'rgba(140,230,255,.35)');
-    hg.addColorStop(1, 'rgba(140,230,255,0)');
-    ctx.fillStyle = hg;
-    ctx.beginPath(); ctx.arc(0, 0, cr * 1.85, 0, 6.2832); ctx.fill();
-
-    // glassy sphere
-    const g = ctx.createRadialGradient(-cr * 0.35, -cr * 0.38, cr * 0.12, 0, 0, cr);
-    g.addColorStop(0, 'rgba(255,255,255,.95)');
-    g.addColorStop(0.45, 'rgba(150,232,255,.80)');
-    g.addColorStop(1, 'rgba(70,180,230,.60)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, 0, cr, 0, 6.2832); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.6 * S; ctx.stroke();
+    // Halo and glass are static: rasterized once, drawn as one image.
+    // Only the spiral below is animated, so it stays a live path.
+    ctx.drawImage(orb.canvas, -orb.half, -orb.half, orb.half * 2, orb.half * 2);
 
     // wind spiral inside
     ctx.strokeStyle = 'rgba(255,255,255,.9)';
@@ -2003,6 +2120,10 @@ function draw(){
 
   // stars — only present once the sky darkens, gently twinkling
   if (sky.star > 0.01){
+    // Batched into four twinkle buckets: four fills per frame instead of
+    // ninety fills and ninety colour strings. The buckets are reused, so
+    // the loop allocates nothing once it has warmed up.
+    for (let b = 0; b < STAR_BUCKETS; b++) starBuckets[b].length = 0;
     for (let i = 0; i < stars.length; i++){
       const st = stars[i];
       let y = (st.y * span - cy * st.d) % span;
@@ -2010,8 +2131,20 @@ function draw(){
       y -= span * 0.4;
       if (y < -20 || y > H * 0.92) continue;      // keep them out of the haze
       const tw = 0.65 + 0.35 * Math.sin(tSec * 1.5 + st.tw);
+      const b = Math.min(STAR_BUCKETS - 1, ((tw - 0.30) / 0.70 * STAR_BUCKETS) | 0);
+      starBuckets[b].push(st.x * W, y, st.r * S);
+    }
+    for (let b = 0; b < STAR_BUCKETS; b++){
+      const arr = starBuckets[b];
+      if (!arr.length) continue;
+      const tw = 0.30 + (b + 0.5) / STAR_BUCKETS * 0.70;
       ctx.fillStyle = rgba(sky.cool, (sky.star * tw * 0.85).toFixed(3));
-      ctx.beginPath(); ctx.arc(st.x * W, y, st.r * S, 0, 6.2832); ctx.fill();
+      ctx.beginPath();
+      for (let k = 0; k < arr.length; k += 3){
+        ctx.moveTo(arr[k] + arr[k + 2], arr[k + 1]);
+        ctx.arc(arr[k], arr[k + 1], arr[k + 2], 0, 6.2832);
+      }
+      ctx.fill();
     }
   }
 
@@ -2176,7 +2309,7 @@ function paintHoop(h, cy, back, ctx = mainContext, cached = false){
     ctx.strokeStyle=h.done?'#b6f4c9':'#ffdf8c';ctx.lineWidth=2*S;
     ctx.setLineDash([6*S,5*S]);ctx.beginPath();ctx.ellipse(0,0,rx+9*S,ry+7*S,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
     const by=-ry-40*S;ctx.fillStyle='#342c1a';roundRect(-65*S,by,130*S,25*S,9*S,ctx);ctx.fill();ctx.stroke();
-    ctx.shadowBlur=0;ctx.fillStyle=h.done?'#b6f4c9':'#ffe8a4';ctx.font='800 '+(12*S)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.done?'⛽ YAKIT ALINDI':'⛽ YAKIT +%28',0,by+12*S);ctx.restore();
+    ctx.shadowBlur=0;ctx.fillStyle=h.done?'#b6f4c9':'#ffe8a4';ctx.font='800 '+(12*S)+'px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(h.done?'⛽ DEPO DOLDU':'⛽ TAM DEPO',0,by+12*S);ctx.restore();
   }
   ctx.lineCap = 'round';
   ctx.shadowColor=sk.mid;ctx.shadowBlur=10*S;
@@ -2211,12 +2344,19 @@ function paintHoop(h, cy, back, ctx = mainContext, cached = false){
     ctx.beginPath(); ctx.ellipse(0, 3.5 * S, rx, ry, 0, 0.12, Math.PI - 0.12); ctx.stroke();
 
     // 2. body, lit from above
-    const g = ctx.createLinearGradient(0, -ry - tw * 0.5, 0, ry + tw * 0.6);
-    g.addColorStop(0,    sk.lite);
-    g.addColorStop(0.45, sk.mid);
-    g.addColorStop(1,    sk.deep);
+    // The breathe animation moves ry by ~1.5%, so bucketing the gradient by
+    // rounded height reuses it across frames without any visible stepping.
+    const gk = (ry * 4 | 0) + ':' + (tw * 4 | 0) + ':' + h._k;
+    if (h._gk !== gk){
+      h._gk = gk;
+      const g = ctx.createLinearGradient(0, -ry - tw * 0.5, 0, ry + tw * 0.6);
+      g.addColorStop(0,    sk.lite);
+      g.addColorStop(0.45, sk.mid);
+      g.addColorStop(1,    sk.deep);
+      h._grad = g;
+    }
     ctx.lineWidth = tw;
-    ctx.strokeStyle = g;
+    ctx.strokeStyle = h._grad;
     ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI); ctx.stroke();
 
     // 3. soft inner shading where the tube curves into the hole
@@ -2649,6 +2789,27 @@ function paintFeather(c, L, Vw, u, bend){
   ctx.stroke();
 }
 
+// The blower is always drawn in the same local space (ctx.scale(S,S) with
+// literal coordinates), so these gradients are built once and reused.
+const _tankGrads = {};
+function tankGrad(x){
+  let g = _tankGrads[x];
+  if (!g){
+    g = ctx.createLinearGradient(x,0,x+12,0);
+    g.addColorStop(0,'#79582b'); g.addColorStop(.45,'#e8bd76'); g.addColorStop(1,'#73512d');
+    _tankGrads[x] = g;
+  }
+  return g;
+}
+let _bodyGrad = null;
+function bodyGrad(){
+  if (!_bodyGrad){
+    _bodyGrad = ctx.createLinearGradient(-26,0,26,0);
+    _bodyGrad.addColorStop(0,'#204454'); _bodyGrad.addColorStop(.42,'#648e96'); _bodyGrad.addColorStop(1,'#1c3b4b');
+  }
+  return _bodyGrad;
+}
+
 function drawBlower(cy){
   const oy=jet.oy-cy,p=air.pressure;
   ctx.save();ctx.translate(jet.ox,oy);ctx.scale(S,S);
@@ -2656,10 +2817,10 @@ function drawBlower(cy){
   ctx.fillStyle='#06162688';ctx.beginPath();ctx.ellipse(0,32,58,10,0,0,Math.PI*2);ctx.fill();
   ctx.strokeStyle='#80ecd366';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,31,52,8,0,0,Math.PI*2);ctx.stroke();
   for(const x of [-37,25]){
-    const g=ctx.createLinearGradient(x,0,x+12,0);g.addColorStop(0,'#79582b');g.addColorStop(.45,'#e8bd76');g.addColorStop(1,'#73512d');ctx.fillStyle=g;roundRect(x,-4,12,30,5);ctx.fill();
+    ctx.fillStyle=tankGrad(x);roundRect(x,-4,12,30,5);ctx.fill();
     ctx.fillStyle='#10252b';roundRect(x+3,0,6,22,2);ctx.fill();ctx.fillStyle=hot;roundRect(x+3,22-22*RUN.fuel/100,6,Math.max(.01,22*RUN.fuel/100),2);ctx.fill();
   }
-  const body=ctx.createLinearGradient(-26,0,26,0);body.addColorStop(0,'#204454');body.addColorStop(.42,'#648e96');body.addColorStop(1,'#1c3b4b');ctx.fillStyle=body;roundRect(-27,-8,54,37,11);ctx.fill();ctx.strokeStyle='#96c7c777';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle=bodyGrad();roundRect(-27,-8,54,37,11);ctx.fill();ctx.strokeStyle='#96c7c777';ctx.lineWidth=1;ctx.stroke();
   ctx.save();ctx.rotate(air.tilt);ctx.fillStyle='#122e3d';roundRect(-20,-30,40,26,7);ctx.fill();ctx.strokeStyle='#c3e4d8';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,-28,18,6,0,0,Math.PI*2);ctx.stroke();
   ctx.fillStyle=p>.02?'#9af9e1':'#355963';ctx.shadowColor='#7affd9';ctx.shadowBlur=p*18;ctx.beginPath();ctx.ellipse(0,-28,14,3,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.restore();
   ctx.save();ctx.translate(0,9);ctx.fillStyle='#0d2534';ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.rotate(tSec*(3+p*22));ctx.fillStyle='#9fbeba';
@@ -2685,11 +2846,16 @@ function drawDangerEdge(){
   const d = (obj.y - cam.y) / H;                 // 0 = top, 1 = bottom
   if (d < 0.80) return;
   const a = clamp((d - 0.80) / 0.20, 0, 1) * 0.42;
-  const g = ctx.createLinearGradient(0, H, 0, H - 150 * S);
-  g.addColorStop(0, 'rgba(255,90,90,' + a.toFixed(3) + ')');
-  g.addColorStop(1, 'rgba(255,90,90,0)');
-  ctx.fillStyle = g;
+  // One gradient for the whole run; only its opacity changes.
+  if (!dangerGrad){
+    dangerGrad = ctx.createLinearGradient(0, H, 0, H - 150 * S);
+    dangerGrad.addColorStop(0, 'rgba(255,90,90,1)');
+    dangerGrad.addColorStop(1, 'rgba(255,90,90,0)');
+  }
+  ctx.globalAlpha = a;
+  ctx.fillStyle = dangerGrad;
   ctx.fillRect(0, H - 150 * S, W, 150 * S);
+  ctx.globalAlpha = 1;
 }
 
 // ===================================================================
