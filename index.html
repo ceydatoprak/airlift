@@ -268,9 +268,7 @@
 (() => {
 'use strict';
 
-// ===================================================================
-//  SETUP
-// ===================================================================
+// Setup
 const cv  = document.getElementById('cv');
 const ctx = cv.getContext('2d', { alpha:false });
 const mainContext = ctx;
@@ -280,15 +278,9 @@ const REF_H = 720;
 
 function resize(){
   const oldW=W, oldH=H;
-  // A hidden or not-yet-laid-out canvas measures 0. Falling back to the
-  // window keeps W/H positive: leaving them at zero makes every later
-  // divide-by-H a NaN and takes the whole script down.
   const newW = cv.clientWidth  || window.innerWidth  || 1;
   const newH = cv.clientHeight || window.innerHeight || 1;
-  if (newW === oldW && newH === oldH) return; // spurious resize event
-  // Mobile browsers fire `resize` every time the address bar slides away, so
-  // pausing on any change would interrupt the run constantly. Only a real
-  // layout change (rotation, window resize) pauses.
+  if (newW === oldW && newH === oldH) return;
   const major = oldW > 0 &&
     (Math.abs(newW - oldW) > oldW * 0.02 || Math.abs(newH - oldH) > oldH * 0.22);
   if (major && typeof pauseGame === 'function') pauseGame();
@@ -314,33 +306,7 @@ function resize(){
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', () => setTimeout(resize, 120));
 
-// ===================================================================
-//  OBJECT PHYSICS PROFILES
-//  ------------------------------------------------------------------
-//  Everything that makes a flying object feel like *that* object lives
-//  in one profile. The physics step reads only from the active profile,
-//  so adding a football / balloon / paper plane later means adding a
-//  block here — not touching the simulation.
-//
-//  All values are unitless multipliers of the shared air constants
-//  (AIR below), except where noted, so profiles stay screen-size
-//  independent.
-// ===================================================================
-//  ONE physics path serves every object. Almost all of the personality is
-//  data, not code — only three optional terms have their own line:
-//    spinRoll  (balls roll instead of weathervaning)
-//    upright   (the balloon wants to stay the right way up)
-//    glide     (the paper plane turns speed + angle of attack into lift)
-//
-//  Field guide:
-//    mass      divides every AERODYNAMIC force (not gravity). Feather = 1.0
-//              is the reference, so its numbers are unchanged from before.
-//    dragEdge  1.0 = a sphere (drag is the same from every direction).
-//              Below 1.0 the object slips along its own axis: 0.18 feather,
-//              0.10 rocket. This single number does most of the work.
-//    angResp   torque turning the object ACROSS the wind (feather flutter).
-//    vane      torque turning the nose INTO its direction of travel
-//              (dart/rocket behaviour). Mutually exclusive with angResp.
+// Physics profiles
 const PROFILES = {
 
   feather: {
@@ -511,9 +477,7 @@ const OBJECT_ORDER = ['feather','football','pingpong','balloon','plane','rocket'
 
 let OBJ = PROFILES.feather;
 
-// ===================================================================
-//  SHARED AIR / WORLD CONSTANTS  (the same for every object)
-// ===================================================================
+// Shared air and world settings.
 const P = {};
 function tune(){
   // --- the air itself: identical no matter what is flying in it -----
@@ -543,8 +507,6 @@ function tune(){
   applyProfile();
 }
 
-// Resolves the active profile into concrete, screen-scaled values.
-// Call this after tune() or whenever the flying object is swapped.
 function applyProfile(){
   const o = OBJ;
   P.g        = P.gBase * o.gravity;
@@ -577,9 +539,7 @@ function setObject(name){
   applyProfile();
 }
 
-// ===================================================================
-//  AUDIO — tiny WebAudio kit: soft blips + a subtle wind bed
-// ===================================================================
+// Audio
 const Snd = {
   ac:null, master:null, windGain:null, windFilter:null, on:true, ready:false,
   init(){
@@ -728,9 +688,7 @@ const Snd = {
   }
 };
 
-// ===================================================================
-//  STATE
-// ===================================================================
+// State
 const RUN = {fuel:100, passed:0, launched:false, pace:1.08, lowWarned:false};
 const FUEL = {burn:24, refill:25, low:35};
 // The whole loop in three numbers. A ring is worth +25. Rings arrive about
@@ -773,14 +731,7 @@ let score = 0, combo = 0, best = 0, spawnY = 0, hoopId = 0, tSec = 0;
 
 try { best = parseInt(localStorage.getItem('airlift_best') || '0', 10) || 0; } catch(e){}
 
-// ===================================================================
-//  CURRENCY
-//  ------------------------------------------------------------------
-//  runCoins   = collected during the current run (resets every run)
-//  totalCoins = permanent wallet (persisted, never reset by a run)
-//  All storage access goes through these three functions so the future
-//  shop can just do:  if (totalCoins >= price) { spendCoins(price); ... }
-// ===================================================================
+// Currency
 const COIN_KEY = 'airlift_coins';
 let runCoins = 0, totalCoins = 0;
 
@@ -807,10 +758,7 @@ function spendCoins(n){
   return true;
 }
 
-// ===================================================================
-//  OBJECT OWNERSHIP
-//  Feather is always owned. Anything unreadable falls back to feather.
-// ===================================================================
+// Object ownership
 const UNLOCK_KEY = 'airlift_unlocked_objects';
 const SELECT_KEY = 'airlift_selected_object';
 let unlocked = ['feather'];
@@ -895,12 +843,6 @@ loadObjects();
 const rnd = (a,b) => a + Math.random()*(b-a);
 const clamp = (v,a,b) => v < a ? a : (v > b ? b : v);
 
-// -------------------------------------------------------------------
-//  Smooth value noise — the flutter driver.
-//  A plain sine would make the feather loop visibly; this is a random
-//  table read at three incommensurate rates, so it never repeats in a
-//  way the eye can lock onto, and it stays cheap (no trig per sample).
-// -------------------------------------------------------------------
 const NTAB = new Float32Array(256);
 for (let i = 0; i < 256; i++) NTAB[i] = Math.random() * 2 - 1;
 function noise1(x){
@@ -915,17 +857,7 @@ function fnoise(x){ return noise1(x) * 0.62 + noise1(x * 2.37 + 41.3) * 0.28 + n
 // gusts: short random shoves, so the drift is never metronomic
 const gust = { t:0, x:0, rot:0 };
 
-// ===================================================================
-//  BACKDROP — cached so no gradients are rebuilt per frame
-// ===================================================================
-// ===================================================================
-//  ATMOSPHERE
-//  Four stages the run blends through continuously with altitude. There
-//  are no thresholds and no switches: `skyStage` is a float and every
-//  colour is interpolated between the two neighbouring stages, so the
-//  player never sees a moment of change — only that the sky has become
-//  something else.
-// ===================================================================
+// Backdrop
 const SKY = [
  {top:[5,16,33],mid:[15,46,63],bot:[43,85,89],cool:[145,234,213],warm:[244,204,158],haze:[43,91,91],hazeA:.5,star:1,wisp:.6,blobA:.13},
  {top:[10,20,43],mid:[32,52,82],bot:[65,99,111],cool:[174,222,249],warm:[158,230,209],haze:[67,99,117],hazeA:.4,star:1,wisp:.7,blobA:.15},
@@ -1005,9 +937,7 @@ function buildBackdrop(){
   updateSky();
 }
 
-// ===================================================================
-//  GAME FLOW
-// ===================================================================
+// Game flow
 function reset(){
   RUN.fuel=100;RUN.passed=0;RUN.launched=false;RUN.pace=1.08;RUN.lowWarned=false;lastFuelUI="";updateRunHUD();
   cam.y = 0; cam.top = 0;
@@ -1031,12 +961,6 @@ function reset(){
   showCombo(0);
 }
 
-// ===================================================================
-//  SCORE-BASED DIFFICULTY
-//  Only newly spawned content changes: visible rings never jump on a score gain.
-//  0–999: close gaps, stationary rings/rocks, sparse hazards.
-//  1000–2000: most of the gentle ramp; 2000–3000: a smaller final increase.
-// ===================================================================
 const DIFF = {
   from:1000, middle:2000, to:3000,
   gap:.26,                         // maximum +26%, never double spacing
@@ -1050,10 +974,8 @@ function progress(){
   return .75*first*first*(3-2*first)+.25*second*second*(3-2*second);
 }
 const lerp = (a, b, t) => a + (b - a) * t;
-// Preserve the existing fuel reward curve independently of content difficulty.
 function ringFuel(){return FUEL.refill*(1+.30*clamp((score-1000)/4000,0,1));}
 
-// The pass opening is unchanged; rings just gain an occasional slow drift.
 function addHoop(){
   const prog = progress();
   const diff = Math.min(hoopId / 30, 1);                 // very gentle ramp
@@ -1124,9 +1046,6 @@ function gameOver(){
   showCombo(0);
 }
 
-// Fires again on EVERY consecutive ring: the animation is restarted so the
-// number pops fresh each time, then fades and drifts up on its own. The CSS
-// owns the timing, so nothing has to be ticked per frame.
 function showCombo(n){
   if (!n){ comboTag.classList.remove('show'); return; }
   comboTag.textContent = 'COMBO ' + n;
@@ -1135,12 +1054,6 @@ function showCombo(n){
   comboTag.classList.add('show');
 }
 
-// ===================================================================
-//  OBJECT SHOP
-//  Cards are built once; only their state is refreshed after that.
-//  Previews call the same paintShape() the game uses, so a card can
-//  never drift out of sync with what actually flies.
-// ===================================================================
 let shopBuilt = false;
 
 function buildShop(){
@@ -1225,8 +1138,6 @@ function onShopClick(key, btn){
   }
 }
 
-// The shop is reachable from both the start screen and the run-over screen,
-// so it remembers where it was opened from and returns there on close.
 let shopReturn = 'startScreen';
 
 function openShop(from){
@@ -1243,9 +1154,6 @@ function closeShop(){
   updateCoinHUD(false);
 }
 
-// ===================================================================
-//  INPUT — pointer events, works with mouse and touch
-// ===================================================================
 let activePointer=null;
 let tapped = false;                        // haptics need a real user gesture
 function ptDown(e){
@@ -1288,12 +1196,6 @@ document.getElementById('sndBtn').addEventListener('click', function(){
   if (!Snd.on) Snd.wind(0, 0);
 });
 
-// ===================================================================
-//  JET FIELD
-//    One function samples the airflow anywhere in the world.
-//    Both the feather and the visible air particles read it, so what you
-//    see is literally the field that is pushing the obj.
-// ===================================================================
 const jet = { ox:0, oy:0, dx:0, dy:-1, res:{ core:0, lat:0, cr:1, fall:0, t:99, along:0 } };
 
 function updateJet(dt){
@@ -1340,7 +1242,6 @@ function updateJet(dt){
   jet.dy = -Math.cos(air.tilt);
 }
 
-// sample the jet at a world point -> res.core is the 0..1 strength
 function sampleJet(x, y){
   const r = jet.res;
   r.core = 0; r.fall = 0; r.t = 99;
@@ -1358,9 +1259,6 @@ function sampleJet(x, y){
   return r;
 }
 
-// ===================================================================
-//  PHYSICS STEP — fixed 1/60 s
-// ===================================================================
 function physics(dt){
   if(state!=="play")return;
   if(!RUN.launched){if(!air.down){updateJet(dt);return}RUN.launched=true}
@@ -1607,11 +1505,6 @@ function physics(dt){
   if (obj.y - cam.y > H + obj.r * 2) gameOver();
 }
 
-// A feather does not bounce. It brushes the wall, loses nearly all of its
-// sideways speed, gets nudged into a rotation and keeps floating.
-// Wall contact for every object. wallDamp is the fraction of horizontal
-// speed kept and re-aimed away from the wall: 0.14 is a feather brushing
-// past, 0.82 is a ping-pong ball pinging off it.
 function wallBrush(v, dir){
   const o = OBJ;
   obj.vx = dir * v * o.wallDamp;
@@ -2752,13 +2645,6 @@ function drawPops(cy){
   }
 }
 
-// -------------------------------------------------------------------
-//  FEATHER
-//  Drawn in local space with the shaft along +x: quill at -L, tip at +L.
-//  The whole thing is rotated by obj.ang, which is real physical state,
-//  so the drawing needs no animation of its own.
-// -------------------------------------------------------------------
-// Soft effects are rasterized once; movement and fading only transform them.
 function glowSprite(color, inner){
   const c = document.createElement('canvas'); c.width = c.height = 192;
   const g = c.getContext('2d');
@@ -2828,13 +2714,6 @@ function drawObject(cy){
   ctx.restore();
 }
 
-// -------------------------------------------------------------------
-//  SHAPE PAINTERS
-//  Pure drawing: local space, shaft along +x, already translated and
-//  rotated by the caller. The shop previews reuse these directly, so a
-//  card always shows exactly what flies.
-//    L  = half-length   Vw = half-width   u = line-width unit
-// -------------------------------------------------------------------
 function paintShape(c, prof, L, Vw, u, bend){
   c.save(); c.shadowColor='#9affdc55';c.shadowBlur=9*u;
   switch (prof.art){
@@ -3062,8 +2941,6 @@ function paintFeather(c, L, Vw, u, bend){
   ctx.stroke();
 }
 
-// The blower is always drawn in the same local space (ctx.scale(S,S) with
-// literal coordinates), so these gradients are built once and reused.
 const _tankGrads = {};
 function tankGrad(x){
   let g = _tankGrads[x];
@@ -3137,9 +3014,6 @@ function drawDangerEdge(){
   ctx.globalAlpha = 1;
 }
 
-// ===================================================================
-//  MAIN LOOP — single rAF, fixed-step physics, capped catch-up
-// ===================================================================
 const STEP = 1 / 60;
 let acc = 0, last = performance.now();
 
@@ -3165,9 +3039,6 @@ function frame(now){
   draw();
 }
 
-// ===================================================================
-//  BOOT
-// ===================================================================
 let hapticsOn=true;
 try{hapticsOn=localStorage.getItem('airlift_haptics')!=='false'; Snd.on=localStorage.getItem('airlift_sound')!=='false'}catch(e){}
 function haptic(pattern){
@@ -3209,10 +3080,6 @@ updateObjectText();
 reset();
 requestAnimationFrame(frame);
 
-// Live tuning handle. Poke at the active profile while playing, e.g.
-//   AIRLIFT.OBJ.dragEdge = 0.9   -> feather stops behaving like a feather
-//   AIRLIFT.OBJ.flutter  = 0     -> kill the drift
-// then call AIRLIFT.applyProfile() to re-resolve the scaled values.
 window.AIRLIFT = {
   P, OBJ, PROFILES, setObject, applyProfile,
   get fuel(){return RUN.fuel},get pace(){return RUN.pace},get passed(){return RUN.passed},
